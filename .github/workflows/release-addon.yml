@@ -1,0 +1,33 @@
+# Packages the in-game add-on and uploads it to CurseForge, Wago and GitHub
+# when you push a tag like addon-v0.3.1. Bump "## Version" in
+# addon/AltLedger/AltLedger.toc first; the desktop app ships the same copy.
+#
+# Repository variables: CURSEFORGE_PROJECT_ID, WAGO_PROJECT_ID
+# Repository secrets:   CF_API_KEY, WAGO_API_TOKEN
+# (Leave one pair unset to skip that site.)
+name: Release add-on
+
+on:
+  push:
+    tags: ["addon-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the packager builds the changelog from history
+
+      - uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >-
+            ${{ vars.CURSEFORGE_PROJECT_ID && format('-p {0}', vars.CURSEFORGE_PROJECT_ID) || '' }}
+            ${{ vars.WAGO_PROJECT_ID && format('-a {0}', vars.WAGO_PROJECT_ID) || '' }}

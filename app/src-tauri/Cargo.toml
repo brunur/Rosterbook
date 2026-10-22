@@ -1,0 +1,31 @@
+[package]
+name = "alt-ledger"
+description = "Alt Ledger desktop app: keeps the local server running in the tray and shows it in a window."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "alt-ledger"
+
+[lib]
+name = "alt_ledger_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "alt-ledger"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+alt-ledger-core = { path = "../../crates/core" }
+alt-ledger-server = { path = "../../crates/server" }
+tauri = { version = "2.12.5", features = ["tray-icon"] }
+tauri-plugin-autostart = "2.7.0"
+tauri-plugin-opener = "2.7.2"
+tauri-plugin-single-instance = "2.5.4"
+tauri-plugin-updater = "2.14.0"
+serde_json = "1.0.154"
+tokio = { version = "1.54.0", features = ["time"] }
+url = "2"

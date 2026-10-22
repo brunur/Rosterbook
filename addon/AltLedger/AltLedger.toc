@@ -1,0 +1,10 @@
+## Interface: 120105, 16001
+## Title: Alt Ledger
+## Notes: Saves your characters' gold, XP, bags, bank, gear, professions and reputations so the Alt Ledger companion app can show them on a second screen.
+## Author: Bob
+## Version: 0.3.0
+## SavedVariables: AltLedgerDB
+## IconTexture: Interface\Icons\inv_misc_note_05
+## Category: Inventory
+
+AltLedger.lua

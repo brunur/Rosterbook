@@ -1,0 +1,10 @@
+{
+  "name": "Alt Ledger",
+  "short_name": "Alt Ledger",
+  "description": "Your WoW characters, bags, bank and reputations on a second screen.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#18202c",
+  "theme_color": "#18202c",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

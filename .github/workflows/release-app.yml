@@ -1,0 +1,63 @@
+# Builds the desktop app for Windows, macOS and Linux when you push a tag like
+# v0.2.0, and attaches the installers to a draft release in this repository.
+#
+# While the repository is private, only collaborators can download them and the
+# app's automatic updater stays off. When you go public, set the repository
+# variable UPDATES_ENABLED to true and add these secrets (see README):
+#   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+name: Release app
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: ""
+          - os: macos-latest
+            args: "--target aarch64-apple-darwin"
+          - os: macos-latest
+            args: "--target x86_64-apple-darwin"
+          - os: ubuntu-22.04 # oldest supported glibc, so the AppImage/deb run widely
+            args: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux build libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app/src-tauri
+          tauriScript: npx --yes @tauri-apps/cli@2
+          args: ${{ matrix.args }} ${{ vars.UPDATES_ENABLED == 'true' && '--config app/src-tauri/tauri.release.conf.json' || '' }}
+          tagName: ${{ github.ref_name }}
+          releaseName: Alt Ledger ${{ github.ref_name }}
+          releaseBody: |
+            Download the installer for your system below.
+            Windows: the .exe setup. macOS: the .dmg (Apple silicon = aarch64, Intel = x64). Linux: the .AppImage, .deb or .rpm.
+            Already installed? Install the new version over the old one; your settings are kept.
+          releaseDraft: true
+          includeUpdaterJson: true

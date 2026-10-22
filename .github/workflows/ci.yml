@@ -1,0 +1,41 @@
+# Runs on every push and pull request: tests the reader, server and add-on,
+# and makes sure the desktop app still compiles.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Desktop app build libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Add-on runs in Lua 5.1 (Forever and Retail) and matches the test fixtures
+        run: |
+          pip install lupa
+          python3 addon/test/run_addon_test.py crates/core/tests/fixtures/AltLedger.forever.lua
+          python3 addon/test/run_addon_test.py --retail crates/core/tests/fixtures/AltLedger.retail.lua
+          git diff --exit-code -- crates/core/tests/fixtures
+
+      - name: Tests
+        run: cargo test --workspace --exclude alt-ledger
+
+      - name: Lints
+        run: cargo clippy --workspace --all-targets -- -D warnings

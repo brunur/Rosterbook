@@ -1,0 +1,19 @@
+# BigWigs packager settings for the in-game add-on (see release-addon.yml).
+# The repository also holds the desktop app; only addon/AltLedger is shipped.
+package-as: AltLedger
+
+move-folders:
+  AltLedger/addon/AltLedger: AltLedger
+
+ignore:
+  - .github
+  - addon/test
+  - app
+  - crates
+  - dev
+  - ui
+  - Cargo.toml
+  - Cargo.lock
+  - README.md
+  - LICENSE
+  - PRIVACY.md

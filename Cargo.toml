@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/casc", "crates/server", "app/src-tauri"]
+default-members = ["crates/core", "crates/casc", "crates/server"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Bob"]
+repository = "https://github.com/Brunur/alt-ledger"
+license = "LicenseRef-Proprietary"
+# Closed source: never upload these crates to crates.io.
+publish = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

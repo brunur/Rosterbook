@@ -1,0 +1,16 @@
+[package]
+name = "alt-ledger-core"
+description = "Reads Alt Ledger add-on data and manages app settings, game detection and add-on installs."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+dirs = "6"
+
+[dev-dependencies]
+tempfile = "3"

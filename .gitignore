@@ -1,0 +1,11 @@
+target/
+/dist/
+*.log
+.DS_Store
+# never commit personal game data
+**/SavedVariables/
+**/WTF/
+sample-data/
+app/src-tauri/gen/
+__pycache__/
+probe-output/
