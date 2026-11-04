@@ -39,6 +39,12 @@ fn main() -> anyhow::Result<()> {
     let session_id = format!("session-{}", now());
     let mut sample_counter: u64 = 0;
 
+    const PRUNE_EVERY: i64 = 86_400; // once a day is plenty for a retention sweep
+    if let Err(e) = store::prune_samples(&data_dir, now(), cfg.retention_days) {
+        eprintln!("alt-ledger-queue-watcher: couldn't prune old samples: {e}");
+    }
+    let mut last_prune = now();
+
     loop {
         let outcome = capture_and_parse(&capturer, &ocr, &cfg);
         let ts = now();
@@ -54,6 +60,13 @@ fn main() -> anyhow::Result<()> {
         sampler.record(&outcome);
         if let Err(e) = store::write_status(&data_dir, ts, sampler.cadence(), sampler.status()) {
             eprintln!("alt-ledger-queue-watcher: couldn't write status: {e}");
+        }
+
+        if ts - last_prune >= PRUNE_EVERY {
+            if let Err(e) = store::prune_samples(&data_dir, ts, cfg.retention_days) {
+                eprintln!("alt-ledger-queue-watcher: couldn't prune old samples: {e}");
+            }
+            last_prune = ts;
         }
 
         std::thread::sleep(sampler.interval(cfg.active_interval_secs, cfg.idle_interval_secs));
