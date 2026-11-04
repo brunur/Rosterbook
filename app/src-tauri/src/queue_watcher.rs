@@ -46,7 +46,15 @@ fn spawn() -> Option<Child> {
         eprintln!("queue watcher binary not found at {}", path.display());
         return None;
     }
-    std::process::Command::new(path).spawn().map_err(|e| eprintln!("couldn't start the queue watcher: {e}")).ok()
+    // `xcap`'s Wayland backend needs zwlr_screencopy_manager_v1, which only
+    // wlroots compositors (Sway, Hyprland...) implement — GNOME/Mutter and
+    // KDE/KWin don't. Unsetting WAYLAND_DISPLAY makes it fall back to X11,
+    // which every compositor still serves through XWayland.
+    std::process::Command::new(path)
+        .env_remove("WAYLAND_DISPLAY")
+        .spawn()
+        .map_err(|e| eprintln!("couldn't start the queue watcher: {e}"))
+        .ok()
 }
 
 pub fn stop(child: &mut Option<Child>) {
