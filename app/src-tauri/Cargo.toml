@@ -20,6 +20,7 @@ tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
 alt-ledger-core = { path = "../../crates/core" }
+alt-ledger-queue = { path = "../../crates/queue" }
 alt-ledger-server = { path = "../../crates/server" }
 tauri = { version = "2.12.5", features = ["tray-icon"] }
 tauri-plugin-autostart = "2.7.0"

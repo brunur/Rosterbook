@@ -11,6 +11,8 @@
 
 use std::sync::Mutex;
 
+mod queue_watcher;
+
 use alt_ledger_server::{Options, Running};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -28,6 +30,7 @@ const UPDATE_CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(6
 struct Shared {
     origin: Url,
     server: Mutex<Option<Running>>,
+    queue_watcher: Mutex<Option<std::process::Child>>,
     autostart_item: CheckMenuItem<Wry>,
     update_item: MenuItem<Wry>,
     pending_update: Mutex<Option<Update>>,
@@ -47,6 +50,7 @@ pub fn run() {
                 ui_dir: None,
                 port: None,
                 cache_dir: None,
+                queue_dir: None,
             }))?;
             let origin: Url = running.local_url().parse()?;
 
@@ -98,6 +102,7 @@ pub fn run() {
             app.manage(Shared {
                 origin,
                 server: Mutex::new(Some(running)),
+                queue_watcher: Mutex::new(None),
                 autostart_item,
                 update_item,
                 pending_update: Mutex::new(None),
@@ -107,6 +112,7 @@ pub fn run() {
                 show_window(handle, "/");
             }
             spawn_update_checks(handle.clone());
+            queue_watcher::spawn_watch_loop(handle.clone());
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -181,6 +187,7 @@ fn stop_server(app: &AppHandle) {
         if let Some(mut running) = shared.server.lock().unwrap().take() {
             running.stop();
         }
+        queue_watcher::stop(&mut shared.queue_watcher.lock().unwrap());
     }
 }
 

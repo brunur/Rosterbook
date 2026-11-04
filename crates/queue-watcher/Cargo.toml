@@ -1,0 +1,23 @@
+[package]
+name = "alt-ledger-queue-watcher"
+description = "Login-queue watcher: a separate process the desktop app launches to capture the connecting window, OCR it, and write queue samples. Never saves an image to disk."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "alt-ledger-queue-watcher"
+path = "src/main.rs"
+
+[dependencies]
+alt-ledger-core = { path = "../core" }
+alt-ledger-queue = { path = "../queue" }
+anyhow = "1"
+rusty-tesseract = "1.1.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+xcap = "0.9.8"
+
+[dev-dependencies]
+tempfile = "3"

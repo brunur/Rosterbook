@@ -415,6 +415,10 @@ kbd { background: var(--panel-2); border: 1px solid var(--line); border-radius: 
 .tag { display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: .78rem; font-weight: 600; }
 .tag.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.tag.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.queue-now { display: flex; align-items: baseline; gap: 8px; margin: 10px 0; }
+.queue-now b { font-size: 2.2rem; }
+.queue-now .hint { font-size: 1rem; }
 .row-flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row-flex input[type="text"] { flex: 1; min-width: 200px; }
 .sticky-foot { position: sticky; bottom: -24px; background: var(--panel); padding: 12px 0; margin: 0 0 -24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; align-items: center; }

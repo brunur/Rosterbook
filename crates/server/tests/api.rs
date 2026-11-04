@@ -9,6 +9,7 @@ const FIXTURE: &str = include_str!("../../core/tests/fixtures/AltLedger.retail.l
 struct Setup {
     _tmp: tempfile::TempDir,
     sv_dir: std::path::PathBuf,
+    queue_dir: std::path::PathBuf,
     port: u16,
     _server: alt_ledger_server::Running,
 }
@@ -18,10 +19,17 @@ async fn setup() -> Setup {
     let sv_dir = tmp.path().join("SavedVariables");
     std::fs::create_dir_all(&sv_dir).unwrap();
     std::fs::write(sv_dir.join("AltLedger.lua"), FIXTURE).unwrap();
-    let server = start(Options { settings_path: tmp.path().join("settings.json"), ui_dir: None, port: Some(0), cache_dir: Some(tmp.path().join("cache")) })
-        .await
-        .unwrap();
-    Setup { port: server.port, sv_dir, _tmp: tmp, _server: server }
+    let server = start(Options {
+        settings_path: tmp.path().join("settings.json"),
+        ui_dir: None,
+        port: Some(0),
+        cache_dir: Some(tmp.path().join("cache")),
+        queue_dir: Some(tmp.path().join("queue")),
+    })
+    .await
+    .unwrap();
+    let queue_dir = tmp.path().join("queue");
+    Setup { port: server.port, sv_dir, queue_dir, _tmp: tmp, _server: server }
 }
 
 fn client() -> reqwest::Client {
@@ -63,6 +71,32 @@ async fn owner_can_configure_and_read_data() {
     // The UI is served, with security headers.
     let r = c.get(format!("{base}/")).send().await.unwrap();
     assert!(r.headers().get("content-security-policy").is_some());
+}
+
+#[tokio::test]
+async fn serves_what_the_queue_watcher_wrote() {
+    let s = setup().await;
+    let base = format!("http://127.0.0.1:{}", s.port);
+    let c = client();
+
+    // Nothing written yet.
+    let empty: Value = c.get(format!("{base}/api/queue")).send().await.unwrap().json().await.unwrap();
+    assert_eq!(empty["status"], Value::Null);
+    assert_eq!(empty["samples"], json!([]));
+
+    std::fs::create_dir_all(&s.queue_dir).unwrap();
+    std::fs::write(s.queue_dir.join("watcher-status.json"), r#"{"updatedAt":1000,"cadence":"active","error":null}"#)
+        .unwrap();
+    std::fs::write(
+        s.queue_dir.join("queue-samples.jsonl"),
+        r#"{"id":"1","sessionId":"s1","ts":1000,"position":42,"displayedTimeText":null,"parseOk":true}"#.to_string()
+            + "\n",
+    )
+    .unwrap();
+
+    let body: Value = c.get(format!("{base}/api/queue")).send().await.unwrap().json().await.unwrap();
+    assert_eq!(body["status"]["cadence"], "active");
+    assert_eq!(body["samples"][0]["position"], 42);
 }
 
 #[tokio::test]

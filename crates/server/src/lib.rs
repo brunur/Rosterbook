@@ -20,6 +20,7 @@
 
 mod icons;
 pub mod net;
+mod queue;
 mod watch;
 
 use alt_ledger_core::{addon, detect, model, settings::{Device, GameConfig, ViewPrefs}, GameData, Settings};
@@ -74,6 +75,9 @@ pub struct Options {
     /// Where to keep rebuildable files such as item pictures (defaults to the
     /// user's cache folder).
     pub cache_dir: Option<PathBuf>,
+    /// Where `alt-ledger-queue-watcher` writes its samples and status
+    /// (defaults to the same settings folder's `queue` subfolder).
+    pub queue_dir: Option<PathBuf>,
 }
 
 struct Pairing {
@@ -114,6 +118,7 @@ pub struct Inner {
     port: AtomicU16,
     icons: icons::IconCache,
     suggestions: RwLock<Vec<Suggestion>>,
+    queue_dir: PathBuf,
 }
 
 pub type AppState = Arc<Inner>;
@@ -434,6 +439,18 @@ async fn data(State(s): State<AppState>, Extension(role): Extension<Role>) -> Re
     let suggestions = if role == Role::Owner { s.suggestions.read().await.clone() } else { vec![] };
     Json(json!({ "version": s.version.load(Ordering::SeqCst), "theme": settings.theme, "games": out, "suggestions": suggestions }))
         .into_response()
+}
+
+/// The watcher's own output, as last written to disk — status and the most
+/// recent samples. Not pushed over `/api/events`; the UI tab polls this
+/// while it's open (the watcher writes it at most once every few seconds).
+async fn get_queue(State(s): State<AppState>, Extension(role): Extension<Role>) -> Response {
+    if let Err(r) = need_view(&role) {
+        return r;
+    }
+    let status = queue::read_status(&s.queue_dir);
+    let samples = queue::read_recent_samples(&s.queue_dir, 500);
+    Json(json!({ "status": status, "samples": samples })).into_response()
 }
 
 async fn events(State(s): State<AppState>, Extension(role): Extension<Role>) -> Response {
@@ -919,6 +936,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/session", get(session))
         .route("/api/data", get(data))
+        .route("/api/queue", get(get_queue))
         .route("/api/events", get(events))
         .route("/api/view/{game}", put(put_view))
         .route("/api/theme", put(put_theme))
@@ -991,6 +1009,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Running> {
         port: AtomicU16::new(port),
         icons: icons::IconCache::new(&opts.cache_dir.unwrap_or_else(alt_ledger_core::settings::default_cache_dir)),
         suggestions: RwLock::new(Vec::new()),
+        queue_dir: opts.queue_dir.unwrap_or_else(|| alt_ledger_core::settings::default_dir().join("queue")),
     });
     state.reload_all().await;
 

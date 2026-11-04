@@ -722,7 +722,7 @@ function openSheet(title, html) {
   }
 }
 $('#sheet-close').addEventListener('click', () => sheet.close());
-sheet.addEventListener('close', () => { pairing = null; clearInterval(pairTimer); });
+sheet.addEventListener('close', () => { pairing = null; clearInterval(pairTimer); clearInterval(queueTimer); });
 
 function settingsTabs() {
   const owner = state.session?.role === 'owner';
@@ -855,6 +855,49 @@ function aboutTab() {
   <div class="group">
     <p class="note">Alt Ledger is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc.</p>
   </div>`;
+}
+
+// ---------- login queue ----------
+let queueTimer = null;
+
+function openQueue() {
+  openSheet('Login queue', '<p class="note">Loading…</p>');
+  renderQueue();
+  clearInterval(queueTimer);
+  queueTimer = setInterval(() => { if (sheet.open && $('#sheet-title').textContent === 'Login queue') renderQueue(); }, 5000);
+}
+
+async function renderQueue() {
+  let q;
+  try {
+    q = await api('GET', '/api/queue');
+  } catch (e) {
+    sheetBody.innerHTML = `<p class="note">${esc(e.message)}</p>`;
+    return;
+  }
+  if (!q.status) {
+    sheetBody.innerHTML = '<p class="note">Login queue tracking isn’t set up on this PC yet.</p>';
+    return;
+  }
+  const latest = q.samples[q.samples.length - 1];
+  const cadenceTag = q.status.error
+    ? `<span class="tag bad">${esc(q.status.error)}</span>`
+    : `<span class="tag ok">${q.status.cadence === 'active' ? 'Watching' : 'Idle'}</span>`;
+  const now = latest?.parseOk
+    ? `<div class="queue-now"><b>#${fmt(latest.position)}</b><span class="hint">in the queue</span></div>${latest.displayedTimeText ? `<p class="note">“${esc(latest.displayedTimeText)}”</p>` : ''}`
+    : '<p class="note">No position read yet.</p>';
+  const recent = q.samples.slice(-10).reverse()
+    .map((s) => `<li>${ago(s.ts)}: ${s.parseOk ? `#${fmt(s.position)}` : '—'}</li>`).join('');
+  sheetBody.innerHTML = `
+    <div class="group">
+      <div class="card-head"><h4>Right now</h4>${cadenceTag}</div>
+      ${now}
+      <p class="hint">Last checked ${ago(q.status.updatedAt)}</p>
+    </div>
+    <div class="group">
+      <h3>Recent</h3>
+      ${recent ? `<ul class="pic-status">${recent}</ul>` : '<p class="note">No samples yet.</p>'}
+    </div>`;
 }
 
 sheetBody.addEventListener('click', async (e) => {
@@ -992,6 +1035,7 @@ async function checkPaired() {
 
 $('#connect-btn').addEventListener('click', openConnect);
 $('#settings-btn').addEventListener('click', () => openSettings(state.session?.role === 'owner' ? 'games' : 'appearance'));
+$('#queue-btn').addEventListener('click', openQueue);
 
 // ---------- data + live updates ----------
 const statusEl = $('#status');
@@ -1010,6 +1054,7 @@ async function fetchSession() {
   const owner = state.session.role === 'owner';
   $('#connect-btn').hidden = !owner;
   $('#settings-btn').hidden = state.session.role === 'unpaired';
+  $('#queue-btn').hidden = state.session.role === 'unpaired';
   $('.search').hidden = state.session.role === 'unpaired';
 }
 

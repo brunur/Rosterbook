@@ -1,0 +1,16 @@
+[package]
+name = "alt-ledger-queue"
+description = "WoW Forever login-queue tracking: OCR text parsing, the sample/session data model, and the on-disk watcher config. No capture, OCR engine, estimate math, storage or UI here."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+alt-ledger-core = { path = "../core" }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"
