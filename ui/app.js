@@ -19,6 +19,7 @@ const state = {
   session: null,
   data: null,
   game: load('game') ?? 0,     // index into data.games (per device)
+  overview: false,              // viewing the all-games summary instead of one game
   picks: load('picks') || {},   // selected character per game (per device)
   tab: load('tab') || 'overview',
   query: '',
@@ -191,7 +192,21 @@ const SVG = {
   eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
 };
 
+function gameTabs() {
+  const games = state.data.games;
+  if (games.length < 2) return '';
+  return `<div class="games" role="tablist" aria-label="Game">
+    <button class="game-btn" role="tab" data-overview aria-selected="${state.overview}">All</button>
+    ${games.map((x, i) => `<button class="game-btn" role="tab" data-game="${i}" aria-selected="${!state.overview && i === state.game}">${esc(x.name)}</button>`).join('')}
+  </div>`;
+}
+
 function renderRoster() {
+  if (state.overview) {
+    roster.classList.remove('arranging');
+    roster.innerHTML = gameTabs();
+    return;
+  }
   const g = cur();
   const games = state.data.games;
   const view = viewOf(g);
@@ -208,9 +223,7 @@ function renderRoster() {
   roster.classList.toggle('arranging', state.arranging);
   roster.innerHTML = `
     ${suggestionBanner()}
-    ${games.length > 1 ? `<div class="games" role="tablist" aria-label="Game">
-      ${games.map((x, i) => `<button class="game-btn" role="tab" data-game="${i}" aria-selected="${i === state.game}">${esc(x.name)}</button>`).join('')}
-    </div>` : ''}
+    ${gameTabs()}
     <div class="account">
       <div class="account-gold">${coins(g.totals.money + (g.warband?.money || 0))}</div>
       <div class="account-meta">${plural(g.totals.characters, 'character')}, ${duration(g.totals.played)} played</div>
@@ -341,7 +354,15 @@ roster.addEventListener('click', (e) => {
     return;
   }
 
-  if (t.dataset.game !== undefined) {
+  if (t.dataset.overview !== undefined) {
+    state.overview = true;
+    state.highlight = null;
+    state.panel = null;
+    state.arranging = false;
+    render();
+    detail.scrollTop = 0;
+  } else if (t.dataset.game !== undefined) {
+    state.overview = false;
     state.game = Number(t.dataset.game);
     state.highlight = null;
     state.panel = null;
@@ -608,6 +629,21 @@ detail.addEventListener('click', (e) => {
     render();
     return;
   }
+  const card = e.target.closest('.overview-card[data-game]');
+  if (card) {
+    state.overview = false;
+    state.game = Number(card.dataset.game);
+    save('game', state.game);
+    render();
+    detail.scrollTop = 0;
+    return;
+  }
+  const suggest = e.target.closest('[data-suggest]');
+  if (suggest) {
+    suggest.disabled = true;
+    answerSuggestion(suggest.dataset.suggest, suggest.dataset.id).catch((err) => { toast(err.message); suggest.disabled = false; });
+    return;
+  }
   const where = e.target.closest('.where-btn[data-id]');
   if (where) selectCharacter(where.dataset.id, where.dataset.tab, Number(where.dataset.item));
   if (e.target.closest('[data-open-setup]')) openSettings('games');
@@ -679,13 +715,15 @@ function render() {
     return;
   }
   if (!games[state.game]) state.game = 0;
+  if (games.length < 2) state.overview = false;
+  renderRoster();
+  if (state.overview) return renderOverview();
   const g = cur();
   const shown = sortedChars(g);
   let pick = state.picks[g.id];
   const valid = (pick === WARBAND && g.warband) || g.characters.some((c) => c.key === pick);
   if (!valid) pick = state.picks[g.id] = shown[0]?.key ?? g.characters[0]?.key ?? (g.warband ? WARBAND : null);
 
-  renderRoster();
   if (state.query.length >= 2) return renderSearch(state.query);
   if (pick == null) {
     detail.innerHTML = `<div class="empty"><h2>No characters yet</h2>
@@ -696,6 +734,42 @@ function render() {
   }
   if (pick === WARBAND) renderWarband(g.warband);
   else renderCharacter(g.characters.find((c) => c.key === pick));
+}
+
+// All added games at a glance, instead of switching tabs one at a time.
+function renderOverview() {
+  const games = state.data.games;
+  const suggestions = state.session?.role === 'owner' ? state.data.suggestions || [] : [];
+  const alerts = suggestions.map((s) => {
+    const version = s.gameVersion ? ` ${esc(s.gameVersion.split('.').slice(0, 3).join('.'))}` : '';
+    const text = {
+      game: `<b>New characters found</b> in ${esc(s.name)}${s.lastSaved ? `, saved ${ago(s.lastSaved)}` : ''}.`,
+      addon: `<b>${esc(s.name)}</b> doesn’t have the Alt Ledger add-on yet.`,
+      'addon-update': `<b>${esc(s.name)}</b> was updated${version ? ` to${version}` : ''}. Update the add-on so the game doesn’t switch it off.`,
+    }[s.kind];
+    const action = s.kind === 'game' ? 'add' : 'install';
+    const label = s.kind === 'game' ? 'Show them' : s.kind === 'addon' ? 'Install add-on' : 'Update add-on';
+    return text ? `<div class="suggest" role="status">
+      <p>${text}</p>
+      <div class="suggest-actions">
+        <button class="btn small primary" data-suggest="${action}" data-id="${esc(s.id)}">${label}</button>
+        <button class="btn small" data-suggest="dismiss" data-id="${esc(s.id)}">Ignore</button>
+      </div>
+    </div>` : '';
+  }).join('');
+
+  const cards = games.map((g, i) => `
+    <button class="overview-card" data-game="${i}">
+      <h3>${esc(g.name)}</h3>
+      <div class="account-gold">${coins(g.totals.money + (g.warband?.money || 0))}</div>
+      <div class="account-meta">${plural(g.totals.characters, 'character')}, ${duration(g.totals.played)} played</div>
+    </button>`).join('');
+
+  detail.innerHTML = `
+    <div class="overview">
+      ${alerts ? `<div class="group">${alerts}</div>` : ''}
+      <div class="overview-grid">${cards}</div>
+    </div>`;
 }
 
 function renderUnpaired() {
