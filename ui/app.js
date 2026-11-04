@@ -722,7 +722,7 @@ function openSheet(title, html) {
   }
 }
 $('#sheet-close').addEventListener('click', () => sheet.close());
-sheet.addEventListener('close', () => { pairing = null; clearInterval(pairTimer); clearInterval(queueTimer); });
+sheet.addEventListener('close', () => { pairing = null; clearInterval(pairTimer); clearInterval(queueTimer); clearInterval(realmStatusTimer); });
 
 function settingsTabs() {
   const owner = state.session?.role === 'owner';
@@ -900,6 +900,42 @@ async function renderQueue() {
     </div>`;
 }
 
+// ---------- server status ----------
+let realmStatusTimer = null;
+
+function openRealmStatus() {
+  openSheet('Server status', '<p class="note">Loading…</p>');
+  renderRealmStatus();
+  clearInterval(realmStatusTimer);
+  realmStatusTimer = setInterval(() => { if (sheet.open && $('#sheet-title').textContent === 'Server status') renderRealmStatus(); }, 30000);
+}
+
+async function renderRealmStatus() {
+  let regions;
+  try {
+    regions = await api('GET', '/api/realm-status');
+  } catch (e) {
+    sheetBody.innerHTML = `<p class="note">${esc(e.message)}</p>`;
+    return;
+  }
+  if (!regions.length) {
+    sheetBody.innerHTML = '<p class="note">Checking…</p>';
+    return;
+  }
+  const rows = regions.map((r) => `
+    <li>
+      <span class="tag ${r.up ? 'ok' : 'bad'}">${r.up ? 'Up' : 'Down'}</span>
+      <b>${esc(r.region)}</b>
+      <span class="hint">${r.up ? `${fmt(r.latencyMs)} ms` : 'unreachable'} · checked ${ago(r.checkedAt)}</span>
+    </li>`).join('');
+  sheetBody.innerHTML = `
+    <div class="group">
+      <h3>Login servers</h3>
+      <p class="hint">One server per region covers retail, classic and classic era alike — this can't tell them apart, just whether the region is reachable.</p>
+      <ul class="pic-status">${rows}</ul>
+    </div>`;
+}
+
 sheetBody.addEventListener('click', async (e) => {
   const t = e.target.closest('button');
   if (!t) return;
@@ -1036,6 +1072,7 @@ async function checkPaired() {
 $('#connect-btn').addEventListener('click', openConnect);
 $('#settings-btn').addEventListener('click', () => openSettings(state.session?.role === 'owner' ? 'games' : 'appearance'));
 $('#queue-btn').addEventListener('click', openQueue);
+$('#realm-status-btn').addEventListener('click', openRealmStatus);
 
 // ---------- data + live updates ----------
 const statusEl = $('#status');
@@ -1055,6 +1092,7 @@ async function fetchSession() {
   $('#connect-btn').hidden = !owner;
   $('#settings-btn').hidden = state.session.role === 'unpaired';
   $('#queue-btn').hidden = state.session.role === 'unpaired';
+  $('#realm-status-btn').hidden = state.session.role === 'unpaired';
   $('.search').hidden = state.session.role === 'unpaired';
 }
 

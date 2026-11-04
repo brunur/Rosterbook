@@ -347,3 +347,20 @@ async fn offers_to_install_and_update_the_addon() {
     assert_eq!(post(&format!("/api/setup/suggestions/{id}/install"), json!({})).await.unwrap().status(), 204);
     assert!(addon_offers().await.is_empty());
 }
+
+#[tokio::test]
+async fn serves_realm_status_once_pinged() {
+    let s = setup().await;
+    let base = format!("http://127.0.0.1:{}", s.port);
+    let c = client();
+    let body: Value = c.get(format!("{base}/api/realm-status")).send().await.unwrap().json().await.unwrap();
+    assert!(body.is_array(), "{body:?}");
+    // The background pinger hasn't necessarily finished yet; once it has,
+    // every entry is one region with the shape the UI expects.
+    for entry in body.as_array().unwrap() {
+        assert!(entry["region"].is_string(), "{entry:?}");
+        assert!(entry["host"].is_string(), "{entry:?}");
+        assert!(entry["up"].is_boolean(), "{entry:?}");
+        assert!(entry["checkedAt"].is_number(), "{entry:?}");
+    }
+}

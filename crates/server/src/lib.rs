@@ -21,6 +21,7 @@
 mod icons;
 pub mod net;
 mod queue;
+mod realm_status;
 mod watch;
 
 use alt_ledger_core::{addon, detect, model, settings::{Device, GameConfig, ViewPrefs}, GameData, Settings};
@@ -119,6 +120,7 @@ pub struct Inner {
     icons: icons::IconCache,
     suggestions: RwLock<Vec<Suggestion>>,
     queue_dir: PathBuf,
+    realm_status: realm_status::RealmStatus,
 }
 
 pub type AppState = Arc<Inner>;
@@ -451,6 +453,16 @@ async fn get_queue(State(s): State<AppState>, Extension(role): Extension<Role>) 
     let status = queue::read_status(&s.queue_dir);
     let samples = queue::read_recent_samples(&s.queue_dir, 500);
     Json(json!({ "status": status, "samples": samples })).into_response()
+}
+
+/// TCP reachability of Blizzard's regional login servers, refreshed in the
+/// background every minute. One server per region covers every flavor, so
+/// this can't tell retail/classic/classic-era apart.
+async fn get_realm_status(State(s): State<AppState>, Extension(role): Extension<Role>) -> Response {
+    if let Err(r) = need_view(&role) {
+        return r;
+    }
+    Json(s.realm_status.snapshot()).into_response()
 }
 
 async fn events(State(s): State<AppState>, Extension(role): Extension<Role>) -> Response {
@@ -937,6 +949,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/session", get(session))
         .route("/api/data", get(data))
         .route("/api/queue", get(get_queue))
+        .route("/api/realm-status", get(get_realm_status))
         .route("/api/events", get(events))
         .route("/api/view/{game}", put(put_view))
         .route("/api/theme", put(put_theme))
@@ -1010,8 +1023,19 @@ pub async fn start(opts: Options) -> anyhow::Result<Running> {
         icons: icons::IconCache::new(&opts.cache_dir.unwrap_or_else(alt_ledger_core::settings::default_cache_dir)),
         suggestions: RwLock::new(Vec::new()),
         queue_dir: opts.queue_dir.unwrap_or_else(|| alt_ledger_core::settings::default_dir().join("queue")),
+        realm_status: realm_status::RealmStatus::new(),
     });
     state.reload_all().await;
+
+    let pinger = Arc::downgrade(&state);
+    tokio::spawn(async move {
+        loop {
+            let Some(state) = pinger.upgrade() else { break };
+            state.realm_status.refresh().await;
+            drop(state);
+            tokio::time::sleep(realm_status::CHECK_EVERY).await;
+        }
+    });
 
     // Notice games that start saving Alt Ledger data while the app is running.
     let scanner = Arc::downgrade(&state);
