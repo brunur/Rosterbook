@@ -58,7 +58,7 @@ pub fn flavor_name(folder: &str, flavor_dir: &Path) -> String {
         "_classic_" => "Classic".into(),
         "_classic_era_" => "Classic Era".into(),
         "_classic_ptr_" | "_classic_era_ptr_" => "Classic PTR".into(),
-        "_classic_beta_" => "Classic Beta".into(),
+        "_classic_beta_" => "Forever".into(),
         "_anniversary_" => "Anniversary".into(),
         "_forever_" => "Forever".into(),
         other => {

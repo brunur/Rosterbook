@@ -283,7 +283,7 @@ async fn offers_games_with_new_data() {
     let d = data().await;
     let offered = games_offered(&d);
     assert_eq!(offered.len(), 2, "both accounts with data, not the empty one: {offered:?}");
-    assert!(offered.iter().all(|o| o["name"].as_str().unwrap().starts_with("Classic Beta (")));
+    assert!(offered.iter().all(|o| o["name"].as_str().unwrap().starts_with("Forever (")));
     assert!(offered[0].get("config").is_none(), "folder paths aren't sent");
     let (first, second) = (offered[0]["id"].as_str().unwrap().to_string(), offered[1]["id"].as_str().unwrap().to_string());
 
