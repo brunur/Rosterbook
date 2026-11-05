@@ -74,6 +74,8 @@ fn reconcile(child: &mut Option<Child>) {
     }
 }
 
+// Unused while queue tracking is disabled (see lib.rs); kept for when it's reimplemented.
+#[allow(dead_code)]
 pub fn spawn_watch_loop(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {

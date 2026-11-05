@@ -232,38 +232,53 @@ end
 return "\nAltLedgerDB = " .. val(AltLedgerDB, "") .. "\n"
 '''
 
-lua = lupa.LuaRuntime(unpack_returned_tuples=True)
-lua.execute(MOCK)
-if IS_RETAIL:
-    lua.execute(RETAIL)
-    # A Warband bank tab with one stack, visible only while the bank is open.
-    lua.execute('''
-      local orig = C_Container.GetContainerNumSlots
-      local origInfo = C_Container.GetContainerItemInfo
-      local origFree = C_Container.GetContainerNumFreeSlots
-      local open = false
-      local oldSet = SetBankOpen
-      SetBankOpen = function(v) open = v; oldSet(v) end
-      C_Container.GetContainerNumSlots = function(id) if id == 12 then return open and 98 or 0 end return orig(id) end
-      C_Container.GetContainerNumFreeSlots = function(id) if id == 12 then return 97 end return origFree(id) end
-      C_Container.GetContainerItemInfo = function(id, slot)
-        if id == 12 then if open and slot == 1 then return { itemID = 210930, stackCount = 200, quality = 1, iconFileID = 1, hyperlink = "|cnIQ1:|Hitem:210930::|h[Bismuth]|h|r" } end return nil end
-        return origInfo(id, slot)
-      end
-    ''')
-code =(ROOT / "AltLedger" / "AltLedger.lua").read_text()
-lua.execute("local f = assert(loadstring(...)); f('AltLedger')", code)
+def new_runtime(retail):
+    """A Lua 5.1 runtime with the mocked WoW API (Forever, or Retail)."""
+    lua = lupa.LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(MOCK)
+    if retail:
+        lua.execute(RETAIL)
+        # A Warband bank tab with one stack, visible only while the bank is open.
+        lua.execute('''
+          local orig = C_Container.GetContainerNumSlots
+          local origInfo = C_Container.GetContainerItemInfo
+          local origFree = C_Container.GetContainerNumFreeSlots
+          local open = false
+          local oldSet = SetBankOpen
+          SetBankOpen = function(v) open = v; oldSet(v) end
+          C_Container.GetContainerNumSlots = function(id) if id == 12 then return open and 98 or 0 end return orig(id) end
+          C_Container.GetContainerNumFreeSlots = function(id) if id == 12 then return 97 end return origFree(id) end
+          C_Container.GetContainerItemInfo = function(id, slot)
+            if id == 12 then if open and slot == 1 then return { itemID = 210930, stackCount = 200, quality = 1, iconFileID = 1, hyperlink = "|cnIQ1:|Hitem:210930::|h[Bismuth]|h|r" } end return nil end
+            return origInfo(id, slot)
+          end
+        ''')
+    return lua
 
-fire = lua.globals().FireEvent
-for e in ["PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED"]:
-    fire(e)
-lua.globals().SetBankOpen(True)
-fire("BANKFRAME_OPENED")
-fire("BANKFRAME_CLOSED")
-lua.globals().SetBankOpen(False)
-fire("BAG_UPDATE_DELAYED")        # bank closed: must not wipe saved bank
-fire("MAIL_INBOX_UPDATE")
-fire("PLAYER_LOGOUT")
 
-OUT.write_text(lua.execute(SERIALIZE))
-print(f"ok: wrote {OUT}")
+def load_addon(lua, folder="AltLedger"):
+    code = (ROOT / folder / (folder + ".lua")).read_text()
+    lua.execute("local f = assert(loadstring(...)); f(select(2, ...))", code, folder)
+
+
+def play_session(lua, logout=True):
+    """Fires what a real login, bank visit, mailbox check and logout would."""
+    fire = lua.globals().FireEvent
+    for e in ["PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "BAG_UPDATE_DELAYED"]:
+        fire(e)
+    lua.globals().SetBankOpen(True)
+    fire("BANKFRAME_OPENED")
+    fire("BANKFRAME_CLOSED")
+    lua.globals().SetBankOpen(False)
+    fire("BAG_UPDATE_DELAYED")        # bank closed: must not wipe saved bank
+    fire("MAIL_INBOX_UPDATE")
+    if logout:
+        fire("PLAYER_LOGOUT")
+
+
+if __name__ == "__main__":
+    lua = new_runtime(IS_RETAIL)
+    load_addon(lua)
+    play_session(lua)
+    OUT.write_text(lua.execute(SERIALIZE))
+    print(f"ok: wrote {OUT}")

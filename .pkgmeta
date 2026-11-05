@@ -1,9 +1,10 @@
 # BigWigs packager settings for the in-game add-on (see release-addon.yml).
-# The repository also holds the desktop app; only addon/AltLedger is shipped.
+# The repository also holds the desktop app; only the two add-on folders ship.
 package-as: AltLedger
 
 move-folders:
   AltLedger/addon/AltLedger: AltLedger
+  AltLedger/addon/AltLedger_UI: AltLedger_UI
 
 ignore:
   - .github

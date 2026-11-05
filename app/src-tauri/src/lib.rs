@@ -112,7 +112,9 @@ pub fn run() {
                 show_window(handle, "/");
             }
             spawn_update_checks(handle.clone());
-            queue_watcher::spawn_watch_loop(handle.clone());
+            // Queue tracking disabled for now (not needed currently; region-picker
+            // UI work was still pending). Re-enable by uncommenting this line.
+            // queue_watcher::spawn_watch_loop(handle.clone());
             Ok(())
         })
         .build(tauri::generate_context!())

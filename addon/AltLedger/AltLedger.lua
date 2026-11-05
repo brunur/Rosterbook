@@ -489,24 +489,198 @@ end
 for event in pairs(handlers) do
   pcall(frame.RegisterEvent, frame, event)   -- skip events this client doesn't have
 end
-frame:SetScript("OnEvent", function(_, event, ...) handlers[event](...) end)
+-- ---------------------------------------------------------------------------
+-- Public API for the optional in-game panel (AltLedger_UI) and other add-ons
+-- ---------------------------------------------------------------------------
+local UI_ADDON = "AltLedger_UI"
+local ICON = "Interface\\Icons\\inv_misc_note_05"
+local AddOns = C_AddOns or {}
+local GetAddOnInfoCompat = AddOns.GetAddOnInfo or GetAddOnInfo
+local LoadAddOnCompat = AddOns.LoadAddOn or LoadAddOn
+local IsAddOnLoadedCompat = AddOns.IsAddOnLoaded or IsAddOnLoaded
+
+local API = {}
+AltLedger = API
+API.SCHEMA = SCHEMA
+API.IS_RETAIL = IS_RETAIL and true or false
+
+function API.GetDB() return db end
+function API.GetCurrentGUID() return me and me.guid end
+function API.Rescan()
+  if not me then return end
+  scanAll(); scanBank()
+end
+
+-- Removes a character (deleted, transferred) from the saved data. The
+-- character you're logged in on can't be removed; it would come straight back.
+function API.ForgetCharacter(guid)
+  if db and guid and guid ~= API.GetCurrentGUID() then
+    db.characters[guid] = nil
+    return true
+  end
+  return false
+end
+
+-- Listeners run shortly after a burst of scans, never more than once a second.
+local listeners = {}
+function API.RegisterCallback(fn) listeners[#listeners + 1] = fn end
+local notifyPending = false
+local function notify()
+  if notifyPending or #listeners == 0 then return end
+  notifyPending = true
+  C_Timer.After(1.5, function()
+    notifyPending = false
+    for _, fn in ipairs(listeners) do pcall(fn) end
+  end)
+end
+
+-- Is the optional panel installed and enabled?
+function API.HasPanel()
+  if not GetAddOnInfoCompat then return false end
+  local ok, name, _, _, _, reason = pcall(GetAddOnInfoCompat, UI_ADDON)
+  return ok and name ~= nil and reason ~= "MISSING" and reason ~= "DISABLED"
+end
+
+-- Loads the panel on first use (it costs no memory until then) and toggles it.
+function API.Toggle()
+  if not me then return end
+  if not IsAddOnLoadedCompat(UI_ADDON) then
+    local loaded, reason = LoadAddOnCompat(UI_ADDON)
+    if not loaded then
+      print(("|cffd9a441Alt Ledger|r: the in-game panel isn't available (%s). Enable \"Alt Ledger - In-game panel\" in the AddOns list.")
+        :format(_G["ADDON_" .. tostring(reason)] or tostring(reason)))
+      return
+    end
+  end
+  if API.Panel then API.Panel.Toggle() end
+end
+
+-- Retail's add-on compartment (the button under the minimap) calls this by name.
+function AltLedger_OnAddonCompartmentClick() API.Toggle() end
+
+frame:SetScript("OnEvent", function(_, event, ...)
+  handlers[event](...)
+  if me then notify() end
+end)
+
+-- ---------------------------------------------------------------------------
+-- Launchers: LibDataBroker (Titan, ChocolateBar, ElvUI…) when another add-on
+-- provides it, otherwise a small minimap button. Only when the panel exists.
+-- ---------------------------------------------------------------------------
+local settings
+
+local function tooltipLines(tt)
+  tt:AddLine("Alt Ledger")
+  tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8)
+  tt:AddLine("|cffffffffDrag|r to move this button.", 0.8, 0.8, 0.8)
+end
+
+local function createMinimapButton()
+  if not Minimap or settings.minimap.hide or API.minimapButton then return end
+  local b = CreateFrame("Button", "AltLedgerMinimapButton", Minimap)
+  API.minimapButton = b
+  b:SetSize(31, 31)
+  b:SetFrameStrata("MEDIUM")
+  b:SetFrameLevel(8)
+  b:RegisterForClicks("AnyUp")
+  b:RegisterForDrag("LeftButton")
+  b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+  local bg = b:CreateTexture(nil, "BACKGROUND")
+  bg:SetSize(20, 20); bg:SetPoint("TOPLEFT", 7, -5)
+  bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+  local icon = b:CreateTexture(nil, "ARTWORK")
+  icon:SetSize(18, 18); icon:SetPoint("TOPLEFT", 7, -6)
+  icon:SetTexture(ICON)
+  icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  local border = b:CreateTexture(nil, "OVERLAY")
+  border:SetSize(53, 53); border:SetPoint("TOPLEFT")
+  border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+
+  local function place()
+    local a = math.rad(settings.minimap.angle)
+    local r = (Minimap:GetWidth() or 140) / 2 + 10
+    b:ClearAllPoints()
+    b:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
+  end
+  local function follow()
+    local mx, my = Minimap:GetCenter()
+    local px, py = GetCursorPosition()
+    local scale = Minimap:GetEffectiveScale()
+    settings.minimap.angle = math.deg(math.atan2(py / scale - my, px / scale - mx)) % 360
+    place()
+  end
+  b:SetScript("OnDragStart", function(self) self:SetScript("OnUpdate", follow) end)
+  b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+  b:SetScript("OnClick", function() API.Toggle() end)
+  b:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT"); tooltipLines(GameTooltip); GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  place()
+end
+
+function API.SetMinimapButtonShown(show)
+  settings.minimap.hide = not show
+  if show then
+    createMinimapButton()
+    if API.minimapButton then API.minimapButton:Show() end
+  elseif API.minimapButton then
+    API.minimapButton:Hide()
+  end
+end
+function API.IsMinimapButtonShown() return settings and not settings.minimap.hide end
+
+local function setupLaunchers()
+  AltLedgerSettings = AltLedgerSettings or {}
+  settings = AltLedgerSettings
+  settings.minimap = settings.minimap or { angle = 200, hide = false }
+  if not API.HasPanel() then return end
+
+  local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
+  if LDB and not API.broker then
+    API.broker = LDB:NewDataObject("Alt Ledger", {
+      type = "launcher", label = "Alt Ledger", icon = ICON,
+      OnClick = function() API.Toggle() end,
+      OnTooltipShow = function(tt) tt:AddLine("Alt Ledger"); tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8) end,
+    })
+  end
+  createMinimapButton()
+end
+
+local onLogin = handlers.PLAYER_LOGIN
+handlers.PLAYER_LOGIN = function()
+  onLogin()
+  setupLaunchers()
+end
 
 -- ---------------------------------------------------------------------------
 -- /altledger
 -- ---------------------------------------------------------------------------
-SLASH_ALTLEDGER1 = "/altledger"
-SLASH_ALTLEDGER2 = "/al"
-SlashCmdList.ALTLEDGER = function(msg)
-  if not me then return end
-  if msg == "scan" then
-    scanAll(); scanBank()
-    print("|cffd9a441Alt Ledger|r: rescanned. Type /reload to save it for the companion app.")
-    return
-  end
+local function printStatus()
   local n = 0
   for _ in pairs(db.characters) do n = n + 1 end
   local bank = me.bankScanned and date("%b %d %H:%M", me.bankScanned) or "never — visit a banker once"
   print(("|cffd9a441Alt Ledger|r: tracking %d character%s. This character's bank last saved: %s.")
     :format(n, n == 1 and "" or "s", bank))
   print("Data reaches the companion app when you log out or /reload. |cffaaaaaa/altledger scan|r rescans now.")
+end
+
+SLASH_ALTLEDGER1 = "/altledger"
+SLASH_ALTLEDGER2 = "/al"
+SlashCmdList.ALTLEDGER = function(msg)
+  if not me then return end
+  msg = (msg or ""):lower():match("^%s*(.-)%s*$")
+  if msg == "scan" then
+    API.Rescan()
+    print("|cffd9a441Alt Ledger|r: rescanned. Type /reload to save it for the companion app.")
+  elseif msg == "status" or (msg == "" and not API.HasPanel()) then
+    printStatus()
+  elseif msg == "minimap" then
+    API.SetMinimapButtonShown(not API.IsMinimapButtonShown())
+    print("|cffd9a441Alt Ledger|r: minimap button " .. (API.IsMinimapButtonShown() and "shown." or "hidden."))
+  elseif msg == "" or msg == "show" then
+    API.Toggle()
+  else
+    print("|cffd9a441Alt Ledger|r: |cffaaaaaa/al|r opens the panel, |cffaaaaaa/al scan|r rescans, |cffaaaaaa/al status|r, |cffaaaaaa/al minimap|r.")
+  end
 end
