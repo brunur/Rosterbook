@@ -1,4 +1,4 @@
-//! Alt Ledger login-queue tracking: turns the queue watcher's raw OCR text
+//! Rosterbook login-queue tracking: turns the queue watcher's raw OCR text
 //! into structured samples, the shapes a queue session is built from, and
 //! the on-disk watcher config both the watcher process and the desktop app
 //! need to agree on. No screen capture, OCR engine, estimate math, storage

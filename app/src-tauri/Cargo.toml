@@ -1,6 +1,6 @@
 [package]
 name = "alt-ledger"
-description = "Alt Ledger desktop app: keeps the local server running in the tray and shows it in a window."
+description = "Rosterbook desktop app: keeps the local server running in the tray and shows it in a window."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

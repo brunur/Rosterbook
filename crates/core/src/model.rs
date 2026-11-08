@@ -1,12 +1,12 @@
-//! The character model shown by the app, built from the Alt Ledger add-on's
-//! saved variable (`AltLedger.lua` → `AltLedgerDB`).
+//! The character model shown by the app, built from the Rosterbook add-on's
+//! saved variable (`Rosterbook.lua` → `RosterbookDB`).
 
 use crate::lua::parse_saved_variables;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::path::Path;
 
-pub const DATA_FILE: &str = "AltLedger.lua";
+pub const DATA_FILE: &str = "Rosterbook.lua";
 /// Highest add-on data format this version understands.
 pub const SUPPORTED_SCHEMA: i64 = 1;
 
@@ -261,12 +261,12 @@ fn flag(v: &Value, key: &str) -> bool {
 // Building the model
 // ---------------------------------------------------------------------------
 
-/// Reads `AltLedger.lua` from a SavedVariables folder. Missing file → empty data.
+/// Reads `Rosterbook.lua` from a SavedVariables folder. Missing file → empty data.
 pub fn load_game_data(saved_variables_dir: &Path, now: i64) -> GameData {
     let file = saved_variables_dir.join(DATA_FILE);
     match std::fs::read_to_string(&file) {
         Ok(src) => match parse_saved_variables(&src) {
-            Ok(vars) => build(vars.get("AltLedgerDB").unwrap_or(&Value::Null), now),
+            Ok(vars) => build(vars.get("RosterbookDB").unwrap_or(&Value::Null), now),
             Err(e) => GameData { errors: vec![format!("{DATA_FILE}: {e}")], generated_at: now, ..Default::default() },
         },
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => GameData { generated_at: now, ..Default::default() },
@@ -278,7 +278,7 @@ pub fn build(db: &Value, now: i64) -> GameData {
     let mut errors = Vec::new();
     if let Some(schema) = int(db, "schema") {
         if schema > SUPPORTED_SCHEMA {
-            errors.push(format!("Saved data uses a newer format (schema {schema}). Update Alt Ledger."));
+            errors.push(format!("Saved data uses a newer format (schema {schema}). Update Rosterbook."));
         }
     }
 
@@ -477,12 +477,12 @@ mod tests {
     use super::*;
     use crate::lua::parse_saved_variables;
 
-    const FIXTURE: &str = include_str!("../tests/fixtures/AltLedger.retail.lua");
+    const FIXTURE: &str = include_str!("../tests/fixtures/Rosterbook.retail.lua");
 
     #[test]
     fn builds_model_from_addon_output() {
         let vars = parse_saved_variables(FIXTURE).unwrap();
-        let g = build(&vars["AltLedgerDB"], 1_792_600_000);
+        let g = build(&vars["RosterbookDB"], 1_792_600_000);
         assert!(g.errors.is_empty(), "{:?}", g.errors);
         assert_eq!(g.flavor.as_deref(), Some("retail"));
         assert_eq!(g.characters.len(), 1);

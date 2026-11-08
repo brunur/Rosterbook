@@ -1,5 +1,5 @@
 """
-Runs AltLedger.lua inside Lua 5.1 (the version WoW uses) against a mocked WoW
+Runs Rosterbook.lua inside Lua 5.1 (the version WoW uses) against a mocked WoW
 API, fires the events a real login/bank visit/logout would, then writes the
 saved variable the way WoW does. Used to check the add-on and the companion
 app's reader together without launching the game.
@@ -12,7 +12,7 @@ import lupa.lua51 as lupa
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
 IS_RETAIL = "--retail" in sys.argv
-OUT = pathlib.Path(ARGS[0] if ARGS else "/tmp/AltLedger.lua")
+OUT = pathlib.Path(ARGS[0] if ARGS else "/tmp/Rosterbook.lua")
 
 MOCK = r'''
 local t = 1792593450
@@ -229,7 +229,7 @@ local function val(v, indent)
   parts[#parts + 1] = indent .. "}"
   return table.concat(parts)
 end
-return "\nAltLedgerDB = " .. val(AltLedgerDB, "") .. "\n"
+return "\nRosterbookDB = " .. val(RosterbookDB, "") .. "\n"
 '''
 
 def new_runtime(retail):
@@ -256,7 +256,7 @@ def new_runtime(retail):
     return lua
 
 
-def load_addon(lua, folder="AltLedger"):
+def load_addon(lua, folder="Rosterbook"):
     code = (ROOT / folder / (folder + ".lua")).read_text()
     lua.execute("local f = assert(loadstring(...)); f(select(2, ...))", code, folder)
 

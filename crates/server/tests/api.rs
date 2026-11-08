@@ -4,7 +4,7 @@ use alt_ledger_server::{net, start, Options};
 use serde_json::{json, Value};
 use std::time::Duration;
 
-const FIXTURE: &str = include_str!("../../core/tests/fixtures/AltLedger.retail.lua");
+const FIXTURE: &str = include_str!("../../core/tests/fixtures/Rosterbook.retail.lua");
 
 struct Setup {
     _tmp: tempfile::TempDir,
@@ -18,7 +18,7 @@ async fn setup() -> Setup {
     let tmp = tempfile::tempdir().unwrap();
     let sv_dir = tmp.path().join("SavedVariables");
     std::fs::create_dir_all(&sv_dir).unwrap();
-    std::fs::write(sv_dir.join("AltLedger.lua"), FIXTURE).unwrap();
+    std::fs::write(sv_dir.join("Rosterbook.lua"), FIXTURE).unwrap();
     let server = start(Options {
         settings_path: tmp.path().join("settings.json"),
         ui_dir: None,
@@ -121,7 +121,7 @@ async fn reloads_when_the_game_saves() {
 
     let before: Value = c.get(format!("{base}/api/data")).send().await.unwrap().json().await.unwrap();
     // Simulate WoW writing new data (Norasonia gets richer).
-    std::fs::write(s.sv_dir.join("AltLedger.lua"), FIXTURE.replace("[\"money\"] = 9308", "[\"money\"] = 123456")).unwrap();
+    std::fs::write(s.sv_dir.join("Rosterbook.lua"), FIXTURE.replace("[\"money\"] = 9308", "[\"money\"] = 123456")).unwrap();
     let mut updated = false;
     for _ in 0..40 {
         tokio::time::sleep(Duration::from_millis(150)).await;
@@ -254,7 +254,7 @@ async fn serves_item_pictures_from_the_install() {
     assert_eq!(c.get(icon_url(ready[0])).send().await.unwrap().status(), 404);
 }
 
-/// A game that starts saving Alt Ledger data is offered to the owner, once,
+/// A game that starts saving Rosterbook data is offered to the owner, once,
 /// and can be added or dismissed.
 #[tokio::test]
 async fn offers_games_with_new_data() {
@@ -272,7 +272,7 @@ async fn offers_games_with_new_data() {
     for account in ["ONE", "TWO"] {
         let sv = flavor.join(format!("WTF/Account/{account}/SavedVariables"));
         std::fs::create_dir_all(&sv).unwrap();
-        std::fs::write(sv.join("AltLedger.lua"), FIXTURE).unwrap();
+        std::fs::write(sv.join("Rosterbook.lua"), FIXTURE).unwrap();
     }
     std::fs::create_dir_all(flavor.join("WTF/Account/EMPTY/SavedVariables")).unwrap();
     assert_eq!(post("/api/setup/install-path", json!({ "path": wow.path() })).await.unwrap().status(), 204);
@@ -333,7 +333,7 @@ async fn offers_to_install_and_update_the_addon() {
     assert_eq!(offers[0]["gameVersion"], "1.61.0.71000");
     let id = offers[0]["id"].as_str().unwrap().to_string();
     assert_eq!(post(&format!("/api/setup/suggestions/{id}/install"), json!({})).await.unwrap().status(), 204);
-    let toc = std::fs::read_to_string(flavor.join("Interface/AddOns/AltLedger/AltLedger.toc")).unwrap();
+    let toc = std::fs::read_to_string(flavor.join("Interface/AddOns/Rosterbook/Rosterbook.toc")).unwrap();
     assert!(toc.contains("16100"), "declares the installed game version: {toc}");
     assert!(addon_offers().await.is_empty());
 

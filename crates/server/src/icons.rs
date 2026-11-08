@@ -59,7 +59,7 @@ impl IconCache {
         self.games.lock().unwrap().entry(game.to_string()).or_default().working = true;
         let root = self.root.clone();
         let result = match flavor_dir {
-            None => Err("Choose this game again in Settings → Games so Alt Ledger knows where it's installed.".to_string()),
+            None => Err("Choose this game again in Settings → Games so Rosterbook knows where it's installed.".to_string()),
             Some(flavor) => tokio::task::spawn_blocking(move || update(&root, &flavor, &wanted))
                 .await
                 .unwrap_or_else(|e| Err(format!("Reading pictures stopped unexpectedly: {e}"))),

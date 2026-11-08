@@ -1,10 +1,10 @@
 # BigWigs packager settings for the in-game add-on (see release-addon.yml).
 # The repository also holds the desktop app; only the two add-on folders ship.
-package-as: AltLedger
+package-as: Rosterbook
 
 move-folders:
-  AltLedger/addon/AltLedger: AltLedger
-  AltLedger/addon/AltLedger_UI: AltLedger_UI
+  Rosterbook/addon/Rosterbook: Rosterbook
+  Rosterbook/addon/Rosterbook_UI: Rosterbook_UI
 
 ignore:
   - .github

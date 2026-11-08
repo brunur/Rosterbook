@@ -414,7 +414,7 @@ mod tests {
     #[test]
     fn parses_typical_saved_variables() {
         let src = r#"
-AltLedgerDB = {
+RosterbookDB = {
 	["schema"] = 1,
 	["characters"] = {
 		["Player-1"] = {
@@ -432,7 +432,7 @@ AltLedgerDB = {
 Other = nil
 "#;
         let v = parse_saved_variables(src).unwrap();
-        let c = &v["AltLedgerDB"]["characters"]["Player-1"];
+        let c = &v["RosterbookDB"]["characters"]["Player-1"];
         assert_eq!(c["name"], json!("Faashri \"Gale\""));
         assert_eq!(c["money"], json!(9308));
         assert_eq!(c["ratio"], json!(5.0625));

@@ -1,5 +1,5 @@
 """
-Opens the in-game panel (AltLedger_UI) inside Lua 5.1 against a mocked WoW
+Opens the in-game panel (Rosterbook_UI) inside Lua 5.1 against a mocked WoW
 API and clicks through everything: every tab, every sort, the item search,
 switching characters, forgetting one, the minimap button and slash commands.
 
@@ -156,22 +156,22 @@ HEADSLOT, CHESTSLOT, MAINHANDSLOT = "Head", "Chest", "Main Hand"
 Popups = {}
 function StaticPopup_Show(which, a, b, data) Popups[#Popups + 1] = { which = which, text = a, data = data } end
 
--- Add-on loading: AltLedger_UI is load-on-demand. Its saved variables are
+-- Add-on loading: Rosterbook_UI is load-on-demand. Its saved variables are
 -- restored after its file runs, then ADDON_LOADED fires, as in the game.
 local loaded = {}
 UIAddonPresent = true
 SavedUIDB = nil
 C_AddOns = {
   GetAddOnInfo = function(name)
-    if name == "AltLedger_UI" and UIAddonPresent then return name, "Alt Ledger", "", true, "DEMAND_LOADED" end
-    if name == "AltLedger_UI" then return name, nil, nil, false, "MISSING" end
+    if name == "Rosterbook_UI" and UIAddonPresent then return name, "Rosterbook", "", true, "DEMAND_LOADED" end
+    if name == "Rosterbook_UI" then return name, nil, nil, false, "MISSING" end
     error("Invalid AddOn name")
   end,
   IsAddOnLoaded = function(name) return loaded[name] == true end,
   LoadAddOn = function(name)
     if not UIAddonPresent then return false, "MISSING" end
     LoadAddOnFile(name)
-    AltLedgerUIDB = SavedUIDB
+    RosterbookUIDB = SavedUIDB
     loaded[name] = true
     FireEvent("ADDON_LOADED", name)
     return true
@@ -226,7 +226,7 @@ G = lua.globals()
 
 # A second character from an earlier session, with a bank and shared items.
 lua.execute('''
-  AltLedgerDB.characters["Player-4620-00000002"] = {
+  RosterbookDB.characters["Player-4620-00000002"] = {
     guid = "Player-4620-00000002", name = "Brannoc Galeforge", realm = GetRealmName(), level = 9,
     class = "Warrior", classToken = "WARRIOR", race = "Dwarf", faction = "Alliance",
     money = 123456789, xp = 100, xpMax = 4000, restXP = 0, itemLevel = 12.5,
@@ -252,15 +252,15 @@ def show(title, scroll):
         print(f"\n--- {title} ---\n{text}")
     return text
 
-API = G.AltLedger
+API = G.Rosterbook
 check(API.HasPanel(), "panel should be detected as installed")
-check(G.AltLedgerMinimapButton is not None, "minimap button created at login")
+check(G.RosterbookMinimapButton is not None, "minimap button created at login")
 if IS_RETAIL:
-    check(G.Brokers["Alt Ledger"] is not None, "LibDataBroker launcher registered")
+    check(G.Brokers["Rosterbook"] is not None, "LibDataBroker launcher registered")
 
 # /al opens the panel (loads the add-on on demand)
-G.SlashCmdList.ALTLEDGER("")
-panel = G.AltLedgerPanel
+G.SlashCmdList.ROSTERBOOK("")
+panel = G.RosterbookPanel
 check(panel is not None and panel.IsShown(panel), "/al opens the panel")
 
 children = list(panel._children.values())
@@ -300,7 +300,7 @@ for _ in range(6):
     sort_btn.Click(sort_btn)
     seen.add(sort_btn._text)
 check(len(seen) == 5, f"cycles through 5 sorts, saw {sorted(seen)}")
-check(G.AltLedgerUIDB.sort in ("level", "name", "gold", "ilvl", "played"), "sort saved")
+check(G.RosterbookUIDB.sort in ("level", "name", "gold", "ilvl", "played"), "sort saved")
 
 # Item search across characters — a standing search bar, not a tab
 edit = next(c for c in children if c._kind == "EditBox")
@@ -337,9 +337,9 @@ check("first expires in" in ov, "mail expiry shown")
 forget = next(r for r in detail_scroll._children[1]._children.values() if r._shown and r.spec and r.spec.onClick)
 forget._scripts.OnClick(forget, "LeftButton")
 popup = G.Popups[len(G.Popups)]
-check(popup.which == "ALTLEDGER_FORGET" and popup.data == "Player-4620-00000002", "confirmation popup")
-G.StaticPopupDialogs.ALTLEDGER_FORGET.OnAccept(None, popup.data)
-check(G.AltLedgerDB.characters["Player-4620-00000002"] is None, "alt forgotten")
+check(popup.which == "ROSTERBOOK_FORGET" and popup.data == "Player-4620-00000002", "confirmation popup")
+G.StaticPopupDialogs.ROSTERBOOK_FORGET.OnAccept(None, popup.data)
+check(G.RosterbookDB.characters["Player-4620-00000002"] is None, "alt forgotten")
 check(not API.ForgetCharacter(API.GetCurrentGUID()), "can't forget the character you're on")
 check("Brannoc" not in G.StripCodes(G.DumpRows(char_scroll)), "list updated")
 
@@ -349,28 +349,28 @@ G.FireEvent("PLAYER_MONEY")
 check("99g 99s 99c" in G.StripCodes(G.DumpRows(char_scroll)) or "99g" in G.StripCodes(G.DumpRows(char_scroll)), "refreshes on change")
 
 # Minimap button drag + hide/show, slash commands
-mm = G.AltLedgerMinimapButton
+mm = G.RosterbookMinimapButton
 mm._scripts.OnDragStart(mm)
 mm._scripts.OnUpdate(mm)
 mm._scripts.OnDragStop(mm)
-check(abs(G.AltLedgerSettings.minimap.angle - 0) < 1e-6, "angle saved from cursor position")
+check(abs(G.RosterbookSettings.minimap.angle - 0) < 1e-6, "angle saved from cursor position")
 mm._scripts.OnEnter(mm)
-G.SlashCmdList.ALTLEDGER("minimap")
-check(not mm.IsShown(mm) and G.AltLedgerSettings.minimap.hide, "minimap button hidden")
-G.SlashCmdList.ALTLEDGER("minimap")
+G.SlashCmdList.ROSTERBOOK("minimap")
+check(not mm.IsShown(mm) and G.RosterbookSettings.minimap.hide, "minimap button hidden")
+G.SlashCmdList.ROSTERBOOK("minimap")
 check(mm.IsShown(mm), "minimap button shown again")
 for cmd in ["status", "scan", "help", " SCAN "]:
-    G.SlashCmdList.ALTLEDGER(cmd)
-G.SlashCmdList.ALTLEDGER("")
+    G.SlashCmdList.ROSTERBOOK(cmd)
+G.SlashCmdList.ROSTERBOOK("")
 check(not panel.IsShown(panel), "/al toggles it closed")
-G.AltLedger_OnAddonCompartmentClick()
+G.Rosterbook_OnAddonCompartmentClick()
 check(panel.IsShown(panel), "add-on compartment opens it")
 
 # ---- Settings
 settings_btn = next(c for c in children if c._kind == "Button" and c._scripts.OnClick and c.fs is None and c._w == 18)
 by_label["Gear"].Click(by_label["Gear"])
 settings_btn.Click(settings_btn)
-check(G.AltLedgerUIDB.tab == "settings", "gear opens settings")
+check(G.RosterbookUIDB.tab == "settings", "gear opens settings")
 view = next(c for c in children if c._kind == "Frame" and c._shown and any(
     k._kind == "CheckButton" for k in c._children.values()))
 checks = {k.label._text: k for k in view._children.values() if k._kind == "CheckButton"}
@@ -384,12 +384,12 @@ check(set(checks) == {"Lock window position", "Keep window on screen", "Close wi
 check(checks["Close with Escape"]._checked and checks["Keep window on screen"]._checked, "defaults ticked")
 
 sliders["Background opacity"].SetValue(sliders["Background opacity"], 0.4)
-check(abs(G.AltLedgerUIDB.settings.opacity - 0.4) < 1e-9 and abs(panel._bgAlpha - 0.4) < 1e-9, "opacity applied")
+check(abs(G.RosterbookUIDB.settings.opacity - 0.4) < 1e-9 and abs(panel._bgAlpha - 0.4) < 1e-9, "opacity applied")
 sliders["Background opacity"]._scripts.OnMouseWheel(sliders["Background opacity"], -1)
-check(abs(G.AltLedgerUIDB.settings.opacity - 0.35) < 1e-9, "mouse wheel steps the slider")
+check(abs(G.RosterbookUIDB.settings.opacity - 0.35) < 1e-9, "mouse wheel steps the slider")
 
 sliders["Text size"].SetValue(sliders["Text size"], 14)
-check(G.AltLedgerFontRow._fontSize == 14 and G.AltLedgerFontHeader._fontSize == 16, "text size applied to fonts")
+check(G.RosterbookFontRow._fontSize == 14 and G.RosterbookFontHeader._fontSize == 16, "text size applied to fonts")
 check(char_scroll._children[1]._children[1]._h == 54, "character rows grow with the text")
 
 sliders["Window scale"].SetValue(sliders["Window scale"], 1.25)
@@ -401,15 +401,15 @@ checks["Lock window position"].SetChecked(checks["Lock window position"], True)
 checks["Lock window position"].Click(checks["Lock window position"])
 before = G.Moves
 panel._scripts.OnDragStart(panel)
-check(G.Moves == before and G.AltLedgerUIDB.settings.locked, "locked window doesn't move")
+check(G.Moves == before and G.RosterbookUIDB.settings.locked, "locked window doesn't move")
 
 esc = checks["Close with Escape"]; esc.SetChecked(esc, False); esc.Click(esc)
-check("AltLedgerPanel" not in list(G.UISpecialFrames.values()), "Escape no longer closes it")
+check("RosterbookPanel" not in list(G.UISpecialFrames.values()), "Escape no longer closes it")
 esc.SetChecked(esc, True); esc.Click(esc)
-check(list(G.UISpecialFrames.values()).count("AltLedgerPanel") == 1, "Escape closes it again, listed once")
+check(list(G.UISpecialFrames.values()).count("RosterbookPanel") == 1, "Escape closes it again, listed once")
 
 realm = checks["Only this realm's characters"]
-G.AltLedgerDB.characters["Player-1-00000009"] = lua.table_from({"guid": "Player-1-00000009", "name": "Farshore Alt",
+G.RosterbookDB.characters["Player-1-00000009"] = lua.table_from({"guid": "Player-1-00000009", "name": "Farshore Alt",
     "realm": "Somewhere Else", "level": 5, "classToken": "WARRIOR", "money": 1})
 realm.SetChecked(realm, True); realm.Click(realm)
 check("Farshore" not in G.StripCodes(G.DumpRows(char_scroll)), "other realm hidden")
@@ -417,24 +417,24 @@ realm.SetChecked(realm, False); realm.Click(realm)
 check("Farshore" in G.StripCodes(G.DumpRows(char_scroll)), "other realm shown")
 
 mmcb = checks["Show minimap button"]; mmcb.SetChecked(mmcb, False); mmcb.Click(mmcb)
-check(not G.AltLedgerMinimapButton.IsShown(G.AltLedgerMinimapButton), "minimap button hidden from settings")
+check(not G.RosterbookMinimapButton.IsShown(G.RosterbookMinimapButton), "minimap button hidden from settings")
 
 layer = next(b for b in view._children.values() if b._kind == "Button" and b._text == "Above most windows")
 layer.Click(layer)
-check(G.AltLedgerUIDB.settings.strata == "DIALOG" and panel._strata == "DIALOG", "layer cycles")
+check(G.RosterbookUIDB.settings.strata == "DIALOG" and panel._strata == "DIALOG", "layer cycles")
 check(layer._text == "On top of everything", "layer label follows")
 
 restore = next(b for b in view._children.values() if b._kind == "Button" and b._text == "Restore defaults")
 restore.Click(restore)
-st = G.AltLedgerUIDB.settings
+st = G.RosterbookUIDB.settings
 check(st.opacity == 0.95 and st.scale == 1 and st.fontSize == 10 and not st.locked and st.strata == "HIGH", "defaults restored")
-check(G.AltLedgerMinimapButton.IsShown(G.AltLedgerMinimapButton) and panel._scale == 1, "defaults applied")
+check(G.RosterbookMinimapButton.IsShown(G.RosterbookMinimapButton) and panel._scale == 1, "defaults applied")
 reset = next(b for b in view._children.values() if b._kind == "Button" and b._text == "Reset position")
 reset.Click(reset)
-check(G.AltLedgerUIDB.point is None, "position reset")
+check(G.RosterbookUIDB.point is None, "position reset")
 
 settings_btn.Click(settings_btn)
-check(G.AltLedgerUIDB.tab == "gear", "gear button returns to the last tab")
+check(G.RosterbookUIDB.tab == "gear", "gear button returns to the last tab")
 if not QUIET:
     print("\n--- Settings ---\nsliders:", sorted(sliders), "\nchecks:", sorted(checks))
 
@@ -445,10 +445,10 @@ bare.execute("UIAddonPresent = false")
 load_addon(bare)
 play_session(bare, logout=False)
 B = bare.globals()
-check(not B.AltLedger.HasPanel(), "panel reported missing")
-check(B.AltLedgerMinimapButton is None, "no minimap button without the panel")
-B.SlashCmdList.ALTLEDGER("")
-B.AltLedger.Toggle()
-check(B.AltLedgerPanel is None, "nothing opens without the panel")
+check(not B.Rosterbook.HasPanel(), "panel reported missing")
+check(B.RosterbookMinimapButton is None, "no minimap button without the panel")
+B.SlashCmdList.ROSTERBOOK("")
+B.Rosterbook.Toggle()
+check(B.RosterbookPanel is None, "nothing opens without the panel")
 
 print(f"ok: in-game panel ({'Retail' if IS_RETAIL else 'Forever'})")

@@ -1,18 +1,18 @@
 --[[
-  Alt Ledger — in-game panel
+  Rosterbook — in-game panel
 
-  An optional window over the data the Alt Ledger add-on records. It's
+  An optional window over the data the Rosterbook add-on records. It's
   load-on-demand: nothing here runs, or uses memory, until you open it with
-  /al, the minimap button or the add-on compartment.
+  /rb, the minimap button or the add-on compartment.
 
-  It only ever reads AltLedgerDB (through the AltLedger API), with one
+  It only ever reads RosterbookDB (through the Rosterbook API), with one
   exception: "Forget character" removes a character the player chose.
-  Its own settings (window position, sort, last tab) live in AltLedgerUIDB.
+  Its own settings (window position, sort, last tab) live in RosterbookUIDB.
 
   Free and open source (MIT), like the add-on it belongs to.
 ]]
 
-local API = AltLedger
+local API = Rosterbook
 if not API then return end
 
 local Panel = {}
@@ -51,8 +51,8 @@ local DEFAULTS = {
 }
 
 local function loadSettings()
-  AltLedgerUIDB = AltLedgerUIDB or {}
-  cfg = AltLedgerUIDB
+  RosterbookUIDB = RosterbookUIDB or {}
+  cfg = RosterbookUIDB
   cfg.sort = cfg.sort or "level"
   cfg.tab = cfg.tab or "overview"
   -- "settings" is a popover, not a tab; "professions" and "find" were folded
@@ -68,9 +68,9 @@ end
 -- Fonts: the panel's own font objects, so one setting resizes every line.
 -- ---------------------------------------------------------------------------
 local Fonts = {
-  row = CreateFont("AltLedgerFontRow"),
-  header = CreateFont("AltLedgerFontHeader"),
-  title = CreateFont("AltLedgerFontTitle"),
+  row = CreateFont("RosterbookFontRow"),
+  header = CreateFont("RosterbookFontHeader"),
+  title = CreateFont("RosterbookFontTitle"),
 }
 Fonts.row:CopyFontObject(GameFontHighlightSmall)
 Fonts.header:CopyFontObject(GameFontNormal)
@@ -772,8 +772,8 @@ Tabs.overview = function(c)
   if not isMe then
     rows[#rows + 1] = { kind = "space" }
     rows[#rows + 1] = { kind = "text", text = GREY .. "Forget this character…|r",
-      tooltip = { "Forget this character", "Removes it from Alt Ledger, e.g. after deleting or transferring it. Logging in on it records it again." },
-      onClick = function() StaticPopup_Show("ALTLEDGER_FORGET", c.name, nil, c.guid) end }
+      tooltip = { "Forget this character", "Removes it from Rosterbook, e.g. after deleting or transferring it. Logging in on it records it again." },
+      onClick = function() StaticPopup_Show("ROSTERBOOK_FORGET", c.name, nil, c.guid) end }
   end
   return rows
 end
@@ -1261,9 +1261,9 @@ local function applySettings()
   frame:SetFrameStrata(o.strata)
   frame:SetClampedToScreen(o.clamp)
   for i = #UISpecialFrames, 1, -1 do
-    if UISpecialFrames[i] == "AltLedgerPanel" then table.remove(UISpecialFrames, i) end
+    if UISpecialFrames[i] == "RosterbookPanel" then table.remove(UISpecialFrames, i) end
   end
-  if o.escape then tinsert(UISpecialFrames, "AltLedgerPanel") end
+  if o.escape then tinsert(UISpecialFrames, "RosterbookPanel") end
 end
 
 local function showTooltip(owner, title, text)
@@ -1451,7 +1451,7 @@ local function buildSettingsView()
     add(checkbox(v, c[1], c[2], function() return o()[c[3]] end, function(val) o()[c[3]] = val end))
       :SetPoint("TOPLEFT", x, -20 - (i - 1) * 26)
   end
-  add(checkbox(v, "Show minimap button", "The minimap button opens this window. /al and the add-on compartment always work.",
+  add(checkbox(v, "Show minimap button", "The minimap button opens this window. /rb and the add-on compartment always work.",
     function() return API.IsMinimapButtonShown() end, function(val) API.SetMinimapButtonShown(val) end))
     :SetPoint("TOPLEFT", x, -20 - #checks * 26)
 
@@ -1480,7 +1480,7 @@ local function buildSettingsView()
   hint:SetPoint("BOTTOMLEFT", 0, 6)
   hint:SetPoint("RIGHT", v, "RIGHT", 0, 0)
   hint:SetJustifyH("LEFT")
-  hint:SetText("/al opens this window  ·  /al scan rescans  ·  /al status  ·  /al minimap  ·  click a character to close settings")
+  hint:SetText("/rb opens this window  ·  /rb scan rescans  ·  /rb status  ·  /rb minimap  ·  click a character to close settings")
 
   local close = button(v, "Close settings", 110, function()
     cfg.tab = lastTab
@@ -1503,10 +1503,10 @@ local function build()
     -- Fires synchronously here: we're a load-on-demand add-on built well
     -- after PLAYER_LOGIN, which is the "register later" case the API docs
     -- call out, so EUI_Skin is already set by the time build() continues.
-    EllesmereUI.RegisterSkin("AltLedger", function(skin) EUI_Skin = skin end)
+    EllesmereUI.RegisterSkin("Rosterbook", function(skin) EUI_Skin = skin end)
   end
 
-  frame = tryCreate("Frame", "AltLedgerPanel", UIParent, "BackdropTemplate")
+  frame = tryCreate("Frame", "RosterbookPanel", UIParent, "BackdropTemplate")
   frame:SetSize(WIDTH, HEIGHT)
   frame:SetToplevel(true)
   frame:SetMovable(true)
@@ -1526,7 +1526,7 @@ local function build()
 
   local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", 16, -14)
-  title:SetText(ACCENT_HEX .. "Alt Ledger|r")
+  title:SetText(ACCENT_HEX .. "Rosterbook|r")
 
   -- A plain "x", not UIPanelCloseButton, so a button-reskinning add-on has
   -- no stock close-button texture of ours to recolour.
@@ -1667,7 +1667,7 @@ local function build()
   findBox:SetSize(220, 26)
   findBox:SetAutoFocus(false)
   -- Anchored off the title's own right edge (not fixed numbers), so it sits
-  -- right next to "Alt Ledger" and shares its vertical centre.
+  -- right next to "Rosterbook" and shares its vertical centre.
   findBox:SetPoint("LEFT", title, "RIGHT", 18, 0)
   if findBox.SetTextInsets then findBox:SetTextInsets(18, 4, 0, 0) end
   local findIcon = frame:CreateTexture(nil, "OVERLAY")
@@ -1705,8 +1705,8 @@ local function build()
 end
 
 StaticPopupDialogs = StaticPopupDialogs or {}
-StaticPopupDialogs.ALTLEDGER_FORGET = {
-  text = "Remove %s from Alt Ledger?\n\nLogging in on that character records it again.",
+StaticPopupDialogs.ROSTERBOOK_FORGET = {
+  text = "Remove %s from Rosterbook?\n\nLogging in on that character records it again.",
   button1 = YES or "Yes",
   button2 = NO or "No",
   OnAccept = function(_, guid)
@@ -1741,7 +1741,7 @@ end
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
 loader:SetScript("OnEvent", function(self, _, name)
-  if name ~= "AltLedger_UI" then return end
+  if name ~= "Rosterbook_UI" then return end
   self:UnregisterEvent("ADDON_LOADED")
   loadSettings()
   selected = cfg.selected

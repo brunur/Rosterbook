@@ -7,7 +7,7 @@ default-members = ["crates/core", "crates/casc", "crates/queue", "crates/queue-w
 version = "0.1.0"
 edition = "2021"
 authors = ["Bob"]
-repository = "https://github.com/Brunur/alt-ledger"
+repository = "https://github.com/Brunur/Rosterbook"
 license = "LicenseRef-Proprietary"
 # Closed source: never upload these crates to crates.io.
 publish = false

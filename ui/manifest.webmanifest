@@ -1,6 +1,6 @@
 {
-  "name": "Alt Ledger",
-  "short_name": "Alt Ledger",
+  "name": "Rosterbook",
+  "short_name": "Rosterbook",
   "description": "Your WoW characters, bags, bank and reputations on a second screen.",
   "start_url": "/",
   "display": "standalone",

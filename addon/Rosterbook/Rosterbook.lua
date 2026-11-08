@@ -1,9 +1,9 @@
 --[[
-  Alt Ledger — exporter add-on
+  Rosterbook — exporter add-on
 
-  Records what the Alt Ledger companion app shows (gold, XP, rested XP,
+  Records what the Rosterbook companion app shows (gold, XP, rested XP,
   location, bags, bank, equipped gear, professions, reputations, mail) into
-  the AltLedgerDB saved variable. WoW writes it to disk when you log out or
+  the RosterbookDB saved variable. WoW writes it to disk when you log out or
   /reload; the companion app reads it from there.
 
   Everything is stored as plain, readable values — no bit packing — so the
@@ -90,12 +90,12 @@ end
 local db, me
 
 local function ensureDB()
-  AltLedgerDB = AltLedgerDB or {}
-  AltLedgerDB.schema = SCHEMA
-  AltLedgerDB.game = IS_RETAIL and "retail" or "classic"
-  AltLedgerDB.build = select(1, GetBuildInfo())
-  AltLedgerDB.characters = AltLedgerDB.characters or {}
-  db = AltLedgerDB
+  RosterbookDB = RosterbookDB or {}
+  RosterbookDB.schema = SCHEMA
+  RosterbookDB.game = IS_RETAIL and "retail" or "classic"
+  RosterbookDB.build = select(1, GetBuildInfo())
+  RosterbookDB.characters = RosterbookDB.characters or {}
+  db = RosterbookDB
 
   local guid = UnitGUID("player")
   db.characters[guid] = db.characters[guid] or {}
@@ -490,9 +490,9 @@ for event in pairs(handlers) do
   pcall(frame.RegisterEvent, frame, event)   -- skip events this client doesn't have
 end
 -- ---------------------------------------------------------------------------
--- Public API for the optional in-game panel (AltLedger_UI) and other add-ons
+-- Public API for the optional in-game panel (Rosterbook_UI) and other add-ons
 -- ---------------------------------------------------------------------------
-local UI_ADDON = "AltLedger_UI"
+local UI_ADDON = "Rosterbook_UI"
 local ICON = "Interface\\Icons\\inv_misc_note_05"
 local AddOns = C_AddOns or {}
 local GetAddOnInfoCompat = AddOns.GetAddOnInfo or GetAddOnInfo
@@ -500,7 +500,7 @@ local LoadAddOnCompat = AddOns.LoadAddOn or LoadAddOn
 local IsAddOnLoadedCompat = AddOns.IsAddOnLoaded or IsAddOnLoaded
 
 local API = {}
-AltLedger = API
+Rosterbook = API
 API.SCHEMA = SCHEMA
 API.IS_RETAIL = IS_RETAIL and true or false
 
@@ -547,7 +547,7 @@ function API.Toggle()
   if not IsAddOnLoadedCompat(UI_ADDON) then
     local loaded, reason = LoadAddOnCompat(UI_ADDON)
     if not loaded then
-      print(("|cffd9a441Alt Ledger|r: the in-game panel isn't available (%s). Enable \"Alt Ledger - In-game panel\" in the AddOns list.")
+      print(("|cffd9a441Rosterbook|r: the in-game panel isn't available (%s). Enable \"Rosterbook - In-game panel\" in the AddOns list.")
         :format(_G["ADDON_" .. tostring(reason)] or tostring(reason)))
       return
     end
@@ -556,7 +556,7 @@ function API.Toggle()
 end
 
 -- Retail's add-on compartment (the button under the minimap) calls this by name.
-function AltLedger_OnAddonCompartmentClick() API.Toggle() end
+function Rosterbook_OnAddonCompartmentClick() API.Toggle() end
 
 frame:SetScript("OnEvent", function(_, event, ...)
   handlers[event](...)
@@ -570,14 +570,14 @@ end)
 local settings
 
 local function tooltipLines(tt)
-  tt:AddLine("Alt Ledger")
+  tt:AddLine("Rosterbook")
   tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8)
   tt:AddLine("|cffffffffDrag|r to move this button.", 0.8, 0.8, 0.8)
 end
 
 local function createMinimapButton()
   if not Minimap or settings.minimap.hide or API.minimapButton then return end
-  local b = CreateFrame("Button", "AltLedgerMinimapButton", Minimap)
+  local b = CreateFrame("Button", "RosterbookMinimapButton", Minimap)
   API.minimapButton = b
   b:SetSize(31, 31)
   b:SetFrameStrata("MEDIUM")
@@ -631,17 +631,17 @@ end
 function API.IsMinimapButtonShown() return settings and not settings.minimap.hide end
 
 local function setupLaunchers()
-  AltLedgerSettings = AltLedgerSettings or {}
-  settings = AltLedgerSettings
+  RosterbookSettings = RosterbookSettings or {}
+  settings = RosterbookSettings
   settings.minimap = settings.minimap or { angle = 200, hide = false }
   if not API.HasPanel() then return end
 
   local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
   if LDB and not API.broker then
-    API.broker = LDB:NewDataObject("Alt Ledger", {
-      type = "launcher", label = "Alt Ledger", icon = ICON,
+    API.broker = LDB:NewDataObject("Rosterbook", {
+      type = "launcher", label = "Rosterbook", icon = ICON,
       OnClick = function() API.Toggle() end,
-      OnTooltipShow = function(tt) tt:AddLine("Alt Ledger"); tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8) end,
+      OnTooltipShow = function(tt) tt:AddLine("Rosterbook"); tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8) end,
     })
   end
   createMinimapButton()
@@ -654,33 +654,33 @@ handlers.PLAYER_LOGIN = function()
 end
 
 -- ---------------------------------------------------------------------------
--- /altledger
+-- /rosterbook
 -- ---------------------------------------------------------------------------
 local function printStatus()
   local n = 0
   for _ in pairs(db.characters) do n = n + 1 end
   local bank = me.bankScanned and date("%b %d %H:%M", me.bankScanned) or "never — visit a banker once"
-  print(("|cffd9a441Alt Ledger|r: tracking %d character%s. This character's bank last saved: %s.")
+  print(("|cffd9a441Rosterbook|r: tracking %d character%s. This character's bank last saved: %s.")
     :format(n, n == 1 and "" or "s", bank))
-  print("Data reaches the companion app when you log out or /reload. |cffaaaaaa/altledger scan|r rescans now.")
+  print("Data reaches the companion app when you log out or /reload. |cffaaaaaa/rosterbook scan|r rescans now.")
 end
 
-SLASH_ALTLEDGER1 = "/altledger"
-SLASH_ALTLEDGER2 = "/al"
-SlashCmdList.ALTLEDGER = function(msg)
+SLASH_ROSTERBOOK1 = "/rosterbook"
+SLASH_ROSTERBOOK2 = "/rb"
+SlashCmdList.ROSTERBOOK = function(msg)
   if not me then return end
   msg = (msg or ""):lower():match("^%s*(.-)%s*$")
   if msg == "scan" then
     API.Rescan()
-    print("|cffd9a441Alt Ledger|r: rescanned. Type /reload to save it for the companion app.")
+    print("|cffd9a441Rosterbook|r: rescanned. Type /reload to save it for the companion app.")
   elseif msg == "status" or (msg == "" and not API.HasPanel()) then
     printStatus()
   elseif msg == "minimap" then
     API.SetMinimapButtonShown(not API.IsMinimapButtonShown())
-    print("|cffd9a441Alt Ledger|r: minimap button " .. (API.IsMinimapButtonShown() and "shown." or "hidden."))
+    print("|cffd9a441Rosterbook|r: minimap button " .. (API.IsMinimapButtonShown() and "shown." or "hidden."))
   elseif msg == "" or msg == "show" then
     API.Toggle()
   else
-    print("|cffd9a441Alt Ledger|r: |cffaaaaaa/al|r opens the panel, |cffaaaaaa/al scan|r rescans, |cffaaaaaa/al status|r, |cffaaaaaa/al minimap|r.")
+    print("|cffd9a441Rosterbook|r: |cffaaaaaa/rb|r opens the panel, |cffaaaaaa/rb scan|r rescans, |cffaaaaaa/rb status|r, |cffaaaaaa/rb minimap|r.")
   end
 end

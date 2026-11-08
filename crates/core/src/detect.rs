@@ -21,7 +21,7 @@ pub struct Flavor {
     pub folder: String,
     pub name: String,
     pub path: PathBuf,
-    /// Version of the Alt Ledger add-on installed in this flavor, if any.
+    /// Version of the Rosterbook add-on installed in this flavor, if any.
     pub addon_version: Option<String>,
     /// The add-on is installed but older than the app's copy, or doesn't list
     /// the installed game version (WoW would switch it off as out of date).
@@ -238,7 +238,7 @@ mod tests {
         let sv = root.join("_retail_/WTF/Account/MYACCOUNT/SavedVariables");
         std::fs::create_dir_all(&sv).unwrap();
         std::fs::create_dir_all(root.join("_retail_/WTF/Account/SavedVariables")).unwrap();
-        std::fs::write(sv.join(DATA_FILE), "AltLedgerDB = {}").unwrap();
+        std::fs::write(sv.join(DATA_FILE), "RosterbookDB = {}").unwrap();
         std::fs::create_dir_all(root.join("_classic_era_/WTF/Account/OTHER/SavedVariables")).unwrap();
 
         let found = detect(&[tmp.path().to_path_buf()]);

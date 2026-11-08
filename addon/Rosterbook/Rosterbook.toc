@@ -1,0 +1,11 @@
+## Interface: 120105, 16001
+## Title: Rosterbook
+## Notes: Saves your characters' gold, XP, bags, bank, gear, professions and reputations so the Rosterbook companion app can show them on a second screen.
+## Author: Bob
+## Version: 0.4.0
+## SavedVariables: RosterbookDB, RosterbookSettings
+## IconTexture: Interface\Icons\inv_misc_note_05
+## Category: Inventory
+## AddonCompartmentFunc: Rosterbook_OnAddonCompartmentClick
+
+Rosterbook.lua

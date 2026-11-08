@@ -1,4 +1,4 @@
-//! Alt Ledger server.
+//! Rosterbook server.
 //!
 //! Serves the web UI and character data to this PC and to devices on the home
 //! network. Security model:
@@ -91,7 +91,7 @@ struct Pairing {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Suggestion {
-    /// "game": has Alt Ledger data but isn't shown. "addon": a game folder
+    /// "game": has Rosterbook data but isn't shown. "addon": a game folder
     /// without the add-on. "addon-update": the add-on there is out of date.
     kind: &'static str,
     id: String,
@@ -198,7 +198,7 @@ impl Inner {
         *self.watcher.lock().await = w.ok();
     }
 
-    /// Looks for accounts with Alt Ledger data that aren't shown or dismissed.
+    /// Looks for accounts with Rosterbook data that aren't shown or dismissed.
     async fn scan_suggestions(&self) {
         let (extra, shown, dismissed) = {
             let s = self.settings.read().await;
@@ -337,7 +337,7 @@ async fn guard(
     } else {
         let settings = state.settings.read().await;
         if !settings.lan {
-            return (StatusCode::FORBIDDEN, "Network access is turned off in Alt Ledger's settings").into_response();
+            return (StatusCode::FORBIDDEN, "Network access is turned off in Rosterbook's settings").into_response();
         }
         match cookie_token(headers) {
             Some(token) => {
@@ -1037,7 +1037,7 @@ pub async fn start(opts: Options) -> anyhow::Result<Running> {
         }
     });
 
-    // Notice games that start saving Alt Ledger data while the app is running.
+    // Notice games that start saving Rosterbook data while the app is running.
     let scanner = Arc::downgrade(&state);
     tokio::spawn(async move {
         loop {

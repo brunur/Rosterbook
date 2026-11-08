@@ -1,6 +1,6 @@
 #!/bin/sh
-# Linux, for running Alt Ledger from source (cargo run): adds it to your app
-# menu and gives its window the Alt Ledger icon in the taskbar/dock instead of
+# Linux, for running Rosterbook from source (cargo run): adds it to your app
+# menu and gives its window the Rosterbook icon in the taskbar/dock instead of
 # a generic one. Installed packages (.deb/.rpm/AppImage) already include this.
 #
 #   sh dev/install-desktop-entry.sh            install or update
@@ -19,7 +19,7 @@ id="alt-ledger"
 if [ "${1:-}" = "--remove" ]; then
     rm -f "$apps/$id.desktop"
     for size in 32 128 256 512; do rm -f "$icons/${size}x${size}/apps/$id.png"; done
-    echo "Removed the Alt Ledger menu entry and icons."
+    echo "Removed the Rosterbook menu entry and icons."
     exit 0
 fi
 
@@ -38,7 +38,7 @@ mkdir -p "$apps"
 cat > "$apps/$id.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Alt Ledger
+Name=Rosterbook
 Comment=See your World of Warcraft characters on any screen
 Exec="$bin"
 Icon=$id

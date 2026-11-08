@@ -1,5 +1,5 @@
 //! Watches each game's SavedVariables folder and reloads that game when WoW
-//! writes `AltLedger.lua` (on logout or /reload). WoW rewrites many files at
+//! writes `Rosterbook.lua` (on logout or /reload). WoW rewrites many files at
 //! once, so changes are debounced.
 
 use crate::AppState;

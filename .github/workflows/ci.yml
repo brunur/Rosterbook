@@ -31,8 +31,8 @@ jobs:
       - name: Add-on runs in Lua 5.1 (Forever and Retail) and matches the test fixtures
         run: |
           pip install lupa
-          python3 addon/test/run_addon_test.py crates/core/tests/fixtures/AltLedger.forever.lua
-          python3 addon/test/run_addon_test.py --retail crates/core/tests/fixtures/AltLedger.retail.lua
+          python3 addon/test/run_addon_test.py crates/core/tests/fixtures/Rosterbook.forever.lua
+          python3 addon/test/run_addon_test.py --retail crates/core/tests/fixtures/Rosterbook.retail.lua
           git diff --exit-code -- crates/core/tests/fixtures
 
       - name: Tests

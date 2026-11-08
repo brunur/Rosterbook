@@ -1,4 +1,4 @@
-"""Builds a multi-character sample AltLedger.lua for UI development, by cloning
+"""Builds a multi-character sample Rosterbook.lua for UI development, by cloning
 the simulated add-on output with different names, classes and races.
 
   python3 dev/make_sample.py OUT_DIR
@@ -9,8 +9,8 @@ import lupa.lua51 as lupa
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 out = pathlib.Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
 lua = lupa.LuaRuntime(unpack_returned_tuples=True)
-lua.execute((ROOT / "crates/core/tests/fixtures/AltLedger.forever.lua").read_text())
-db = lua.globals().AltLedgerDB
+lua.execute((ROOT / "crates/core/tests/fixtures/Rosterbook.forever.lua").read_text())
+db = lua.globals().RosterbookDB
 base = list(db.characters.values())[0]
 
 def to_py(t):
@@ -49,5 +49,5 @@ for i, (name, cid, cname, ctok, rid, race, lvl, money, sex) in enumerate(people)
     if i: c.pop("bank", None); c.pop("bankScanned", None)
     chars[c["guid"]] = c
 db_py = {"schema": 1, "game": "classic", "build": "1.60.1", "characters": chars}
-(out / "AltLedger.lua").write_text("\nAltLedgerDB = " + to_lua(db_py) + "\n")
-print("wrote", out / "AltLedger.lua")
+(out / "Rosterbook.lua").write_text("\nRosterbookDB = " + to_lua(db_py) + "\n")
+print("wrote", out / "Rosterbook.lua")

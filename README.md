@@ -1,18 +1,18 @@
-# Alt Ledger
+# Rosterbook
 
 See every World of Warcraft character you own (gold, bags, bank, gear, professions, reputations, rested XP) on your PC, or on a phone or tablet beside your keyboard.
 
-Alt Ledger has two parts:
+Rosterbook has two parts:
 
 | Part | What it does | Where it ships |
 |---|---|---|
-| **Add-on** (`addon/AltLedger`) | Records each character when you log out or `/reload`. Works on Retail and WoW Forever. | CurseForge, Wago, GitHub |
-| **In-game panel** (`addon/AltLedger_UI`, optional) | A window in the game over the same data, for players without a second screen. Loads only when opened. | Ships in the same download as the add-on |
+| **Add-on** (`addon/Rosterbook`) | Records each character when you log out or `/reload`. Works on Retail and WoW Forever. | CurseForge, Wago, GitHub |
+| **In-game panel** (`addon/Rosterbook_UI`, optional) | A window in the game over the same data, for players without a second screen. Loads only when opened. | Ships in the same download as the add-on |
 | **Desktop app** (`app/`, `crates/`, `ui/`) | Reads what the add-on saved, shows it in a window, and shares it with devices on your home Wi-Fi. | GitHub Releases (private while testing) |
 
 Nothing is sent to the internet. The app runs a small web server on your own PC; phones and tablets on the same network connect to it after you approve them with a QR code.
 
-> Alt Ledger is a fan-made tool. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc. The app draws its own item icons and uses no game artwork.
+> Rosterbook is a fan-made tool. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc. The app draws its own item icons and uses no game artwork.
 
 ---
 
@@ -23,22 +23,22 @@ Nothing is sent to the internet. The app runs a small web server on your own PC;
 3. Log in to WoW. Each character is recorded when you log out, or right away with `/reload`. Open your bank once per character to record it too.
 4. To use a tablet or phone, choose **Connect a device** and scan the QR code.
 
-Closing the window keeps Alt Ledger running in the tray so your devices stay connected. Use **Quit** in the tray menu to stop it. The tray menu also has **Start when I sign in**.
+Closing the window keeps Rosterbook running in the tray so your devices stay connected. Use **Quit** in the tray menu to stop it. The tray menu also has **Start when I sign in**.
 
-If a tablet can't connect, allow Alt Ledger through your PC's firewall on **private** networks (Windows asks the first time). The Connect screen lists other addresses to try if your PC has more than one network adapter.
+If a tablet can't connect, allow Rosterbook through your PC's firewall on **private** networks (Windows asks the first time). The Connect screen lists other addresses to try if your PC has more than one network adapter.
 
-**Item pictures.** By default Alt Ledger draws its own simple item icons. Settings → Games → **Show item pictures from my WoW install** switches to the game's own icons. Alt Ledger reads just the icons your characters use, straight from the game's files on your PC, and caches them. After a game patch it reads them again. Items it can't find a picture for keep the drawing.
+**Item pictures.** By default Rosterbook draws its own simple item icons. Settings → Games → **Show item pictures from my WoW install** switches to the game's own icons. Rosterbook reads just the icons your characters use, straight from the game's files on your PC, and caches them. After a game patch it reads them again. Items it can't find a picture for keep the drawing.
 
 ### In game
 
-The add-on download also contains **Alt Ledger - In-game panel**, a window over the same data for players who don't use a second screen. It's load-on-demand: it uses no memory until you open it, and you can switch it off in the AddOns list if you only want the desktop app.
+The add-on download also contains **Rosterbook - In-game panel**, a window over the same data for players who don't use a second screen. It's load-on-demand: it uses no memory until you open it, and you can switch it off in the AddOns list if you only want the desktop app.
 
-- `/al`, the minimap button, or (Retail) the add-on compartment opens it. If Titan Panel, ElvUI or another add-on provides LibDataBroker, Alt Ledger shows up there too.
+- `/rb`, the minimap button, or (Retail) the add-on compartment opens it. If Titan Panel, ElvUI or another add-on provides LibDataBroker, Rosterbook shows up there too.
 - Characters on the left (sort by level, name, gold, item level or last played) with total gold, and the Warband bank's gold on Retail.
 - Tabs for the selected character: **Overview**, **Gear**, **Bags**, **Bank** (plus the Warband bank on Retail), **Professions**, **Reputation**, and **Find item**, which searches every character's gear, bags and bank. Hover an item for its tooltip; shift-click to link it in chat.
 - **Forget this character** (on the Overview of any other character) removes a deleted or transferred character.
 - The gear button opens **Settings**: background opacity, text size, window scale, window layer, lock position, keep on screen, close with Escape, only this realm's characters, and the minimap button. Settings are saved per account.
-- `/al status` prints what's tracked, `/al scan` rescans, `/al minimap` hides or shows the minimap button.
+- `/rb status` prints what's tracked, `/rb scan` rescans, `/rb minimap` hides or shows the minimap button.
 
 The panel shows the logged-in character live; the desktop app still sees changes when you log out or `/reload`.
 
@@ -61,8 +61,8 @@ See [PRIVACY.md](PRIVACY.md).
 The code is a Rust workspace:
 
 ```
-addon/AltLedger/        the in-game add-on (Lua): records data, /al, launchers
-addon/AltLedger_UI/     optional in-game panel (load-on-demand)
+addon/Rosterbook/        the in-game add-on (Lua): records data, /rb, launchers
+addon/Rosterbook_UI/     optional in-game panel (load-on-demand)
 addon/test/             runs both add-ons in Lua 5.1 against a mocked WoW API
 crates/core/            reads SavedVariables, settings, install detection, add-on installer
 crates/casc/            read-only access to item icons in a local install (CASC storage, BLP images)
@@ -89,7 +89,7 @@ Desktop app:
 cargo run -p alt-ledger
 ```
 
-On Linux, run `sh dev/install-desktop-entry.sh` once so the window gets Alt Ledger's icon in the taskbar and the app appears in your app menu (installed packages do this themselves).
+On Linux, run `sh dev/install-desktop-entry.sh` once so the window gets Rosterbook's icon in the taskbar and the app appears in your app menu (installed packages do this themselves).
 
 Server only, without a window (handy while working on the UI, or on a PC you only reach from other devices):
 
@@ -99,14 +99,14 @@ cargo run -p alt-ledger-server -- --ui ui
 
 then open <http://localhost:8787>. `--ui ui` serves the interface straight from the folder, so edits show on refresh. Add `--settings some/file.json` to keep test settings apart from your real ones.
 
-Both share settings in your config folder (`%APPDATA%\AltLedger` on Windows, `~/Library/Application Support/AltLedger` on macOS, `~/.config/AltLedger` on Linux).
+Both share settings in your config folder (`%APPDATA%\Rosterbook` on Windows, `~/Library/Application Support/Rosterbook` on macOS, `~/.config/Rosterbook` on Linux).
 
 ### Tests
 
 ```sh
 cargo test --workspace --exclude alt-ledger
-python3 addon/test/run_addon_test.py crates/core/tests/fixtures/AltLedger.forever.lua
-python3 addon/test/run_addon_test.py --retail crates/core/tests/fixtures/AltLedger.retail.lua
+python3 addon/test/run_addon_test.py crates/core/tests/fixtures/Rosterbook.forever.lua
+python3 addon/test/run_addon_test.py --retail crates/core/tests/fixtures/Rosterbook.retail.lua
 python3 addon/test/run_panel_test.py            # in-game panel, Forever (prints each tab)
 python3 addon/test/run_panel_test.py --retail   # in-game panel, Retail
 ```
@@ -159,7 +159,7 @@ Copies installed before this point don't have updates turned on, so testers need
 
 ### Add-on
 
-1. Bump `## Version` in `addon/AltLedger/AltLedger.toc` and `addon/AltLedger_UI/AltLedger_UI.toc` (the desktop app bundles the same copy of the recorder and offers it as an update).
+1. Bump `## Version` in `addon/Rosterbook/Rosterbook.toc` and `addon/Rosterbook_UI/Rosterbook_UI.toc` (the desktop app bundles the same copy of the recorder and offers it as an update).
 2. Commit, then tag and push: `git tag addon-v0.3.1 && git push origin addon-v0.3.1`.
 3. The **Release add-on** workflow uploads it to CurseForge, Wago and GitHub.
 
@@ -181,4 +181,4 @@ The installers aren't code-signed yet. Windows SmartScreen shows "Windows protec
 
 ## License
 
-Alt Ledger's desktop app, server and web interface are proprietary: © 2026 Bob, all rights reserved (see `LICENSE`). The in-game add-on in `addon/AltLedger` is MIT licensed (`addon/AltLedger/LICENSE.txt`), as add-ons on CurseForge and Wago normally are, and its Lua source ships to every player anyway.
+Rosterbook's desktop app, server and web interface are proprietary: © 2026 Bob, all rights reserved (see `LICENSE`). The in-game add-on in `addon/Rosterbook` is MIT licensed (`addon/Rosterbook/LICENSE.txt`), as add-ons on CurseForge and Wago normally are, and its Lua source ships to every player anyway.

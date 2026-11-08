@@ -1,6 +1,6 @@
 [package]
 name = "alt-ledger-core"
-description = "Reads Alt Ledger add-on data and manages app settings, game detection and add-on installs."
+description = "Reads Rosterbook add-on data and manages app settings, game detection and add-on installs."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

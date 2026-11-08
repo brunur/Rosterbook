@@ -1,15 +1,15 @@
-//! The Alt Ledger add-on, embedded in the app so it can be installed or
+//! The Rosterbook add-on, embedded in the app so it can be installed or
 //! updated into any game flavor with one click.
 
 use std::path::{Path, PathBuf};
 
-pub const FOLDER: &str = "AltLedger";
+pub const FOLDER: &str = "Rosterbook";
 
 /// (file name, contents) of every file in the add-on folder.
 pub const FILES: &[(&str, &str)] = &[
-    ("AltLedger.toc", include_str!("../../../addon/AltLedger/AltLedger.toc")),
-    ("AltLedger.lua", include_str!("../../../addon/AltLedger/AltLedger.lua")),
-    ("LICENSE.txt", include_str!("../../../addon/AltLedger/LICENSE.txt")),
+    ("Rosterbook.toc", include_str!("../../../addon/Rosterbook/Rosterbook.toc")),
+    ("Rosterbook.lua", include_str!("../../../addon/Rosterbook/Rosterbook.lua")),
+    ("LICENSE.txt", include_str!("../../../addon/Rosterbook/LICENSE.txt")),
 ];
 
 /// Version of the add-on bundled with this build of the app.
@@ -58,7 +58,7 @@ pub fn game_version(flavor_dir: &Path) -> Option<String> {
 /// version, and declared compatible with the installed game version (WoW turns
 /// off add-ons that don't list the game's version as "out of date").
 pub fn installed_is_current(flavor_dir: &Path) -> bool {
-    let Ok(toc) = std::fs::read_to_string(addon_dir(flavor_dir).join("AltLedger.toc")) else { return false };
+    let Ok(toc) = std::fs::read_to_string(addon_dir(flavor_dir).join("Rosterbook.toc")) else { return false };
     let version_ok = toc_version(&toc).as_deref() == Some(bundled_version().as_str());
     let interface_ok = match game_version(flavor_dir).as_deref().and_then(interface_for) {
         Some(i) => toc_interfaces(&toc).contains(&i),
@@ -73,11 +73,11 @@ pub fn addon_dir(flavor_dir: &Path) -> PathBuf {
 
 /// Version installed in a game flavor folder (e.g. `.../_retail_`), if any.
 pub fn installed_version(flavor_dir: &Path) -> Option<String> {
-    let toc = std::fs::read_to_string(addon_dir(flavor_dir).join("AltLedger.toc")).ok()?;
+    let toc = std::fs::read_to_string(addon_dir(flavor_dir).join("Rosterbook.toc")).ok()?;
     toc_version(&toc)
 }
 
-/// Installs or updates the add-on. Only ever writes inside `Interface/AddOns/AltLedger`.
+/// Installs or updates the add-on. Only ever writes inside `Interface/AddOns/Rosterbook`.
 ///
 /// The installed copy also declares the game version actually installed in
 /// that folder, so a game patch doesn't get it switched off as out of date.
@@ -122,7 +122,7 @@ mod tests {
         let v = install(&flavor).unwrap();
         assert_eq!(installed_version(&flavor), Some(v.clone()));
         assert_eq!(v, bundled_version());
-        assert!(addon_dir(&flavor).join("AltLedger.lua").is_file());
+        assert!(addon_dir(&flavor).join("Rosterbook.lua").is_file());
     }
 
     /// A game folder at a version the bundled TOC doesn't list (e.g. after a patch).
@@ -155,7 +155,7 @@ mod tests {
         let flavor = patched_flavor(tmp.path(), "1.61.0.71000");
         assert!(!installed_is_current(&flavor));
         install(&flavor).unwrap();
-        let toc = std::fs::read_to_string(addon_dir(&flavor).join("AltLedger.toc")).unwrap();
+        let toc = std::fs::read_to_string(addon_dir(&flavor).join("Rosterbook.toc")).unwrap();
         assert!(toc_interfaces(&toc).contains(&16100));
         assert!(toc_interfaces(&toc).contains(&120105), "keeps the versions it already listed");
         assert!(installed_is_current(&flavor));

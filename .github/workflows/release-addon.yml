@@ -1,6 +1,6 @@
 # Packages the in-game add-on and uploads it to CurseForge, Wago and GitHub
 # when you push a tag like addon-v0.3.1. Bump "## Version" in
-# addon/AltLedger/AltLedger.toc first; the desktop app ships the same copy.
+# addon/Rosterbook/Rosterbook.toc first; the desktop app ships the same copy.
 #
 # Repository variables: CURSEFORGE_PROJECT_ID, WAGO_PROJECT_ID
 # Repository secrets:   CF_API_KEY, WAGO_API_TOKEN
