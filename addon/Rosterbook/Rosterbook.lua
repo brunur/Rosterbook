@@ -1,7 +1,7 @@
 --[[
-  Rosterbook — exporter add-on
+  RosterBook — exporter add-on
 
-  Records what the Rosterbook companion app shows (gold, XP, rested XP,
+  Records what the RosterBook companion app shows (gold, XP, rested XP,
   location, bags, bank, equipped gear, professions, reputations, mail) into
   the RosterbookDB saved variable. WoW writes it to disk when you log out or
   /reload; the companion app reads it from there.
@@ -547,7 +547,7 @@ function API.Toggle()
   if not IsAddOnLoadedCompat(UI_ADDON) then
     local loaded, reason = LoadAddOnCompat(UI_ADDON)
     if not loaded then
-      print(("|cffd9a441Rosterbook|r: the in-game panel isn't available (%s). Enable \"Rosterbook - In-game panel\" in the AddOns list.")
+      print(("|cffd9a441RosterBook|r: the in-game panel isn't available (%s). Enable \"RosterBook - In-game panel\" in the AddOns list.")
         :format(_G["ADDON_" .. tostring(reason)] or tostring(reason)))
       return
     end
@@ -570,7 +570,7 @@ end)
 local settings
 
 local function tooltipLines(tt)
-  tt:AddLine("Rosterbook")
+  tt:AddLine("RosterBook")
   tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8)
   tt:AddLine("|cffffffffDrag|r to move this button.", 0.8, 0.8, 0.8)
 end
@@ -638,10 +638,10 @@ local function setupLaunchers()
 
   local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
   if LDB and not API.broker then
-    API.broker = LDB:NewDataObject("Rosterbook", {
-      type = "launcher", label = "Rosterbook", icon = ICON,
+    API.broker = LDB:NewDataObject("RosterBook", {
+      type = "launcher", label = "RosterBook", icon = ICON,
       OnClick = function() API.Toggle() end,
-      OnTooltipShow = function(tt) tt:AddLine("Rosterbook"); tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8) end,
+      OnTooltipShow = function(tt) tt:AddLine("RosterBook"); tt:AddLine("|cffffffffClick|r to open your characters.", 0.8, 0.8, 0.8) end,
     })
   end
   createMinimapButton()
@@ -660,7 +660,7 @@ local function printStatus()
   local n = 0
   for _ in pairs(db.characters) do n = n + 1 end
   local bank = me.bankScanned and date("%b %d %H:%M", me.bankScanned) or "never — visit a banker once"
-  print(("|cffd9a441Rosterbook|r: tracking %d character%s. This character's bank last saved: %s.")
+  print(("|cffd9a441RosterBook|r: tracking %d character%s. This character's bank last saved: %s.")
     :format(n, n == 1 and "" or "s", bank))
   print("Data reaches the companion app when you log out or /reload. |cffaaaaaa/rosterbook scan|r rescans now.")
 end
@@ -672,15 +672,15 @@ SlashCmdList.ROSTERBOOK = function(msg)
   msg = (msg or ""):lower():match("^%s*(.-)%s*$")
   if msg == "scan" then
     API.Rescan()
-    print("|cffd9a441Rosterbook|r: rescanned. Type /reload to save it for the companion app.")
+    print("|cffd9a441RosterBook|r: rescanned. Type /reload to save it for the companion app.")
   elseif msg == "status" or (msg == "" and not API.HasPanel()) then
     printStatus()
   elseif msg == "minimap" then
     API.SetMinimapButtonShown(not API.IsMinimapButtonShown())
-    print("|cffd9a441Rosterbook|r: minimap button " .. (API.IsMinimapButtonShown() and "shown." or "hidden."))
+    print("|cffd9a441RosterBook|r: minimap button " .. (API.IsMinimapButtonShown() and "shown." or "hidden."))
   elseif msg == "" or msg == "show" then
     API.Toggle()
   else
-    print("|cffd9a441Rosterbook|r: |cffaaaaaa/rb|r opens the panel, |cffaaaaaa/rb scan|r rescans, |cffaaaaaa/rb status|r, |cffaaaaaa/rb minimap|r.")
+    print("|cffd9a441RosterBook|r: |cffaaaaaa/rb|r opens the panel, |cffaaaaaa/rb scan|r rescans, |cffaaaaaa/rb status|r, |cffaaaaaa/rb minimap|r.")
   end
 end

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Linux, for running Rosterbook from source (cargo run): adds it to your app
-# menu and gives its window the Rosterbook icon in the taskbar/dock instead of
+# Linux, for running RosterBook from source (cargo run): adds it to your app
+# menu and gives its window the RosterBook icon in the taskbar/dock instead of
 # a generic one. Installed packages (.deb/.rpm/AppImage) already include this.
 #
 #   sh dev/install-desktop-entry.sh            install or update
@@ -19,7 +19,7 @@ id="alt-ledger"
 if [ "${1:-}" = "--remove" ]; then
     rm -f "$apps/$id.desktop"
     for size in 32 128 256 512; do rm -f "$icons/${size}x${size}/apps/$id.png"; done
-    echo "Removed the Rosterbook menu entry and icons."
+    echo "Removed the RosterBook menu entry and icons."
     exit 0
 fi
 
@@ -38,7 +38,7 @@ mkdir -p "$apps"
 cat > "$apps/$id.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Rosterbook
+Name=RosterBook
 Comment=See your World of Warcraft characters on any screen
 Exec="$bin"
 Icon=$id

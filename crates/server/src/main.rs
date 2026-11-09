@@ -1,4 +1,4 @@
-//! Headless Rosterbook server, for running without the desktop app
+//! Headless RosterBook server, for running without the desktop app
 //! (development, or a PC you only reach from other devices).
 //!
 //!   alt-ledger-server [--settings FILE] [--port N] [--ui DIR]
@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut running =
         start(Options { settings_path: settings_path.clone(), ui_dir, port, cache_dir: None, queue_dir }).await?;
-    println!("\nRosterbook {} is running.", alt_ledger_server::VERSION);
+    println!("\nRosterBook {} is running.", alt_ledger_server::VERSION);
     println!("  Settings:    {}", settings_path.display());
     println!("  On this PC:  http://localhost:{}", running.port);
     if let Some(best) = net::lan_addresses().first() {

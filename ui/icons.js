@@ -1,4 +1,4 @@
-// Rosterbook's own item icons: simple line drawings chosen by item category
+// RosterBook's own item icons: simple line drawings chosen by item category
 // (class / subclass / equip slot recorded by the add-on). No game artwork.
 
 (() => {

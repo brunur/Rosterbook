@@ -1,11 +1,11 @@
 --[[
-  Rosterbook — in-game panel
+  RosterBook — in-game panel
 
-  An optional window over the data the Rosterbook add-on records. It's
+  An optional window over the data the RosterBook add-on records. It's
   load-on-demand: nothing here runs, or uses memory, until you open it with
   /rb, the minimap button or the add-on compartment.
 
-  It only ever reads RosterbookDB (through the Rosterbook API), with one
+  It only ever reads RosterbookDB (through the RosterBook API), with one
   exception: "Forget character" removes a character the player chose.
   Its own settings (window position, sort, last tab) live in RosterbookUIDB.
 
@@ -772,7 +772,7 @@ Tabs.overview = function(c)
   if not isMe then
     rows[#rows + 1] = { kind = "space" }
     rows[#rows + 1] = { kind = "text", text = GREY .. "Forget this character…|r",
-      tooltip = { "Forget this character", "Removes it from Rosterbook, e.g. after deleting or transferring it. Logging in on it records it again." },
+      tooltip = { "Forget this character", "Removes it from RosterBook, e.g. after deleting or transferring it. Logging in on it records it again." },
       onClick = function() StaticPopup_Show("ROSTERBOOK_FORGET", c.name, nil, c.guid) end }
   end
   return rows
@@ -1503,7 +1503,7 @@ local function build()
     -- Fires synchronously here: we're a load-on-demand add-on built well
     -- after PLAYER_LOGIN, which is the "register later" case the API docs
     -- call out, so EUI_Skin is already set by the time build() continues.
-    EllesmereUI.RegisterSkin("Rosterbook", function(skin) EUI_Skin = skin end)
+    EllesmereUI.RegisterSkin("RosterBook", function(skin) EUI_Skin = skin end)
   end
 
   frame = tryCreate("Frame", "RosterbookPanel", UIParent, "BackdropTemplate")
@@ -1526,7 +1526,7 @@ local function build()
 
   local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", 16, -14)
-  title:SetText(ACCENT_HEX .. "Rosterbook|r")
+  title:SetText(ACCENT_HEX .. "RosterBook|r")
 
   -- A plain "x", not UIPanelCloseButton, so a button-reskinning add-on has
   -- no stock close-button texture of ours to recolour.
@@ -1667,7 +1667,7 @@ local function build()
   findBox:SetSize(220, 26)
   findBox:SetAutoFocus(false)
   -- Anchored off the title's own right edge (not fixed numbers), so it sits
-  -- right next to "Rosterbook" and shares its vertical centre.
+  -- right next to "RosterBook" and shares its vertical centre.
   findBox:SetPoint("LEFT", title, "RIGHT", 18, 0)
   if findBox.SetTextInsets then findBox:SetTextInsets(18, 4, 0, 0) end
   local findIcon = frame:CreateTexture(nil, "OVERLAY")
@@ -1706,7 +1706,7 @@ end
 
 StaticPopupDialogs = StaticPopupDialogs or {}
 StaticPopupDialogs.ROSTERBOOK_FORGET = {
-  text = "Remove %s from Rosterbook?\n\nLogging in on that character records it again.",
+  text = "Remove %s from RosterBook?\n\nLogging in on that character records it again.",
   button1 = YES or "Yes",
   button2 = NO or "No",
   OnAccept = function(_, guid)

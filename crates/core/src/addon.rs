@@ -1,4 +1,4 @@
-//! The Rosterbook add-on, embedded in the app so it can be installed or
+//! The RosterBook add-on, embedded in the app so it can be installed or
 //! updated into any game flavor with one click.
 
 use std::path::{Path, PathBuf};

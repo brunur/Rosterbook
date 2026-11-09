@@ -72,7 +72,7 @@ impl WatcherConfig {
     }
 }
 
-/// `<config dir>/Rosterbook/queue`, alongside the main app's own settings.
+/// `<config dir>/RosterBook/queue`, alongside the main app's own settings.
 pub fn default_dir() -> PathBuf {
     alt_ledger_core::settings::default_dir().join("queue")
 }

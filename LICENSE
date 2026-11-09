@@ -1,6 +1,6 @@
 Copyright (c) 2026 Bob. All rights reserved.
 
-Rosterbook (the desktop app, server, and web interface in this repository) is
+RosterBook (the desktop app, server, and web interface in this repository) is
 proprietary software. No permission is granted to copy, modify, distribute,
 sublicense or sell it, in source or binary form, except with prior written
 permission from the copyright holder.
@@ -11,5 +11,5 @@ use it for personal testing only, and may not share the build with others.
 The in-game add-on in addon/Rosterbook is separately licensed under the MIT
 License; see addon/Rosterbook/LICENSE.txt.
 
-World of Warcraft is a trademark of Blizzard Entertainment, Inc. Rosterbook is
+World of Warcraft is a trademark of Blizzard Entertainment, Inc. RosterBook is
 not affiliated with or endorsed by Blizzard Entertainment.

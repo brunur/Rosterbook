@@ -1,8 +1,8 @@
-# Rosterbook
+# RosterBook
 
 See every World of Warcraft character you own (gold, bags, bank, gear, professions, reputations, rested XP) on your PC, or on a phone or tablet beside your keyboard.
 
-Rosterbook has two parts:
+RosterBook has two parts:
 
 | Part | What it does | Where it ships |
 |---|---|---|
@@ -12,7 +12,7 @@ Rosterbook has two parts:
 
 Nothing is sent to the internet. The app runs a small web server on your own PC; phones and tablets on the same network connect to it after you approve them with a QR code.
 
-> Rosterbook is a fan-made tool. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc. The app draws its own item icons and uses no game artwork.
+> RosterBook is a fan-made tool. It is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc. The app draws its own item icons and uses no game artwork.
 
 ---
 
@@ -23,17 +23,17 @@ Nothing is sent to the internet. The app runs a small web server on your own PC;
 3. Log in to WoW. Each character is recorded when you log out, or right away with `/reload`. Open your bank once per character to record it too.
 4. To use a tablet or phone, choose **Connect a device** and scan the QR code.
 
-Closing the window keeps Rosterbook running in the tray so your devices stay connected. Use **Quit** in the tray menu to stop it. The tray menu also has **Start when I sign in**.
+Closing the window keeps RosterBook running in the tray so your devices stay connected. Use **Quit** in the tray menu to stop it. The tray menu also has **Start when I sign in**.
 
-If a tablet can't connect, allow Rosterbook through your PC's firewall on **private** networks (Windows asks the first time). The Connect screen lists other addresses to try if your PC has more than one network adapter.
+If a tablet can't connect, allow RosterBook through your PC's firewall on **private** networks (Windows asks the first time). The Connect screen lists other addresses to try if your PC has more than one network adapter.
 
-**Item pictures.** By default Rosterbook draws its own simple item icons. Settings → Games → **Show item pictures from my WoW install** switches to the game's own icons. Rosterbook reads just the icons your characters use, straight from the game's files on your PC, and caches them. After a game patch it reads them again. Items it can't find a picture for keep the drawing.
+**Item pictures.** By default RosterBook draws its own simple item icons. Settings → Games → **Show item pictures from my WoW install** switches to the game's own icons. RosterBook reads just the icons your characters use, straight from the game's files on your PC, and caches them. After a game patch it reads them again. Items it can't find a picture for keep the drawing.
 
 ### In game
 
-The add-on download also contains **Rosterbook - In-game panel**, a window over the same data for players who don't use a second screen. It's load-on-demand: it uses no memory until you open it, and you can switch it off in the AddOns list if you only want the desktop app.
+The add-on download also contains **RosterBook - In-game panel**, a window over the same data for players who don't use a second screen. It's load-on-demand: it uses no memory until you open it, and you can switch it off in the AddOns list if you only want the desktop app.
 
-- `/rb`, the minimap button, or (Retail) the add-on compartment opens it. If Titan Panel, ElvUI or another add-on provides LibDataBroker, Rosterbook shows up there too.
+- `/rb`, the minimap button, or (Retail) the add-on compartment opens it. If Titan Panel, ElvUI or another add-on provides LibDataBroker, RosterBook shows up there too.
 - Characters on the left (sort by level, name, gold, item level or last played) with total gold, and the Warband bank's gold on Retail.
 - Tabs for the selected character: **Overview**, **Gear**, **Bags**, **Bank** (plus the Warband bank on Retail), **Professions**, **Reputation**, and **Find item**, which searches every character's gear, bags and bank. Hover an item for its tooltip; shift-click to link it in chat.
 - **Forget this character** (on the Overview of any other character) removes a deleted or transferred character.
@@ -89,7 +89,7 @@ Desktop app:
 cargo run -p alt-ledger
 ```
 
-On Linux, run `sh dev/install-desktop-entry.sh` once so the window gets Rosterbook's icon in the taskbar and the app appears in your app menu (installed packages do this themselves).
+On Linux, run `sh dev/install-desktop-entry.sh` once so the window gets RosterBook's icon in the taskbar and the app appears in your app menu (installed packages do this themselves).
 
 Server only, without a window (handy while working on the UI, or on a PC you only reach from other devices):
 
@@ -99,7 +99,7 @@ cargo run -p alt-ledger-server -- --ui ui
 
 then open <http://localhost:8787>. `--ui ui` serves the interface straight from the folder, so edits show on refresh. Add `--settings some/file.json` to keep test settings apart from your real ones.
 
-Both share settings in your config folder (`%APPDATA%\Rosterbook` on Windows, `~/Library/Application Support/Rosterbook` on macOS, `~/.config/Rosterbook` on Linux).
+Both share settings in your config folder (`%APPDATA%\RosterBook` on Windows, `~/Library/Application Support/RosterBook` on macOS, `~/.config/RosterBook` on Linux).
 
 ### Tests
 
@@ -181,4 +181,4 @@ The installers aren't code-signed yet. Windows SmartScreen shows "Windows protec
 
 ## License
 
-Rosterbook's desktop app, server and web interface are proprietary: © 2026 Bob, all rights reserved (see `LICENSE`). The in-game add-on in `addon/Rosterbook` is MIT licensed (`addon/Rosterbook/LICENSE.txt`), as add-ons on CurseForge and Wago normally are, and its Lua source ships to every player anyway.
+RosterBook's desktop app, server and web interface are proprietary: © 2026 Bob, all rights reserved (see `LICENSE`). The in-game add-on in `addon/Rosterbook` is MIT licensed (`addon/Rosterbook/LICENSE.txt`), as add-ons on CurseForge and Wago normally are, and its Lua source ships to every player anyway.

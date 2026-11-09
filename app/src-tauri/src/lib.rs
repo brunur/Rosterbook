@@ -1,4 +1,4 @@
-//! Rosterbook desktop app.
+//! RosterBook desktop app.
 //!
 //! The app is a thin shell around `alt-ledger-server`: it starts the server,
 //! sits in the tray, and opens a window that loads the server's own page
@@ -56,12 +56,12 @@ pub fn run() {
 
             let handle = app.handle();
             let autostart_on = handle.autolaunch().is_enabled().unwrap_or(false);
-            let open = MenuItem::with_id(handle, "open", "Open Rosterbook", true, None::<&str>)?;
+            let open = MenuItem::with_id(handle, "open", "Open RosterBook", true, None::<&str>)?;
             let connect = MenuItem::with_id(handle, "connect", "Connect a device…", true, None::<&str>)?;
             let autostart_item =
                 CheckMenuItem::with_id(handle, "autostart", "Start when I sign in", true, autostart_on, None::<&str>)?;
             let update_item = MenuItem::with_id(handle, "update", "Up to date", false, None::<&str>)?;
-            let quit_item = MenuItem::with_id(handle, "quit", "Quit Rosterbook", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(handle, "quit", "Quit RosterBook", true, None::<&str>)?;
             let menu = Menu::with_items(
                 handle,
                 &[
@@ -76,7 +76,7 @@ pub fn run() {
             )?;
 
             let mut tray = TrayIconBuilder::with_id("tray")
-                .tooltip(format!("Rosterbook on port {}", running.port))
+                .tooltip(format!("RosterBook on port {}", running.port))
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id().as_ref() {
@@ -118,7 +118,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("couldn't start Rosterbook");
+        .expect("couldn't start RosterBook");
 
     app.run(|app, event| match event {
         // Closing the last window is not quitting: keep serving from the tray.
@@ -149,11 +149,11 @@ fn show_window(app: &AppHandle, path: &str) {
     let origin = shared.origin.clone();
     let opener = app.clone();
     let built = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-        .title("Rosterbook")
+        .title("RosterBook")
         .inner_size(1200.0, 800.0)
         .min_inner_size(380.0, 520.0)
         .background_color(Color(24, 32, 44, 255))
-        // The window only ever shows Rosterbook. Anything else opens in the
+        // The window only ever shows RosterBook. Anything else opens in the
         // person's own browser instead of inside the app.
         .on_navigation(move |target| {
             if target.origin() == origin.origin() {

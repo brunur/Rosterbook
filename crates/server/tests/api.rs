@@ -254,7 +254,7 @@ async fn serves_item_pictures_from_the_install() {
     assert_eq!(c.get(icon_url(ready[0])).send().await.unwrap().status(), 404);
 }
 
-/// A game that starts saving Rosterbook data is offered to the owner, once,
+/// A game that starts saving RosterBook data is offered to the owner, once,
 /// and can be added or dismissed.
 #[tokio::test]
 async fn offers_games_with_new_data() {

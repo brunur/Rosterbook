@@ -1,5 +1,5 @@
 //! App settings, stored as JSON in the user's config folder
-//! (`~/.config/Rosterbook`, `%APPDATA%\Rosterbook`, `~/Library/Application Support/Rosterbook`).
+//! (`~/.config/RosterBook`, `%APPDATA%\RosterBook`, `~/Library/Application Support/RosterBook`).
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -91,12 +91,12 @@ pub struct Device {
 }
 
 pub fn default_dir() -> PathBuf {
-    dirs::config_dir().unwrap_or_else(|| PathBuf::from(".")).join("Rosterbook")
+    dirs::config_dir().unwrap_or_else(|| PathBuf::from(".")).join("RosterBook")
 }
 
 /// Where rebuildable files (such as item pictures) are kept; not backed up or roamed.
 pub fn default_cache_dir() -> PathBuf {
-    dirs::cache_dir().unwrap_or_else(default_dir).join("Rosterbook")
+    dirs::cache_dir().unwrap_or_else(default_dir).join("RosterBook")
 }
 
 impl Settings {

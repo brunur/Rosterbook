@@ -1,6 +1,6 @@
 {
-  "name": "Rosterbook",
-  "short_name": "Rosterbook",
+  "name": "RosterBook",
+  "short_name": "RosterBook",
   "description": "Your WoW characters, bags, bank and reputations on a second screen.",
   "start_url": "/",
   "display": "standalone",

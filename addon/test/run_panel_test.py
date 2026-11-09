@@ -163,7 +163,7 @@ UIAddonPresent = true
 SavedUIDB = nil
 C_AddOns = {
   GetAddOnInfo = function(name)
-    if name == "Rosterbook_UI" and UIAddonPresent then return name, "Rosterbook", "", true, "DEMAND_LOADED" end
+    if name == "Rosterbook_UI" and UIAddonPresent then return name, "RosterBook", "", true, "DEMAND_LOADED" end
     if name == "Rosterbook_UI" then return name, nil, nil, false, "MISSING" end
     error("Invalid AddOn name")
   end,
@@ -256,7 +256,7 @@ API = G.Rosterbook
 check(API.HasPanel(), "panel should be detected as installed")
 check(G.RosterbookMinimapButton is not None, "minimap button created at login")
 if IS_RETAIL:
-    check(G.Brokers["Rosterbook"] is not None, "LibDataBroker launcher registered")
+    check(G.Brokers["RosterBook"] is not None, "LibDataBroker launcher registered")
 
 # /al opens the panel (loads the add-on on demand)
 G.SlashCmdList.ROSTERBOOK("")

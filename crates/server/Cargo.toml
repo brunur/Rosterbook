@@ -1,6 +1,6 @@
 [package]
 name = "alt-ledger-server"
-description = "Local network server for Rosterbook: serves the UI and your character data to this PC and paired devices."
+description = "Local network server for RosterBook: serves the UI and your character data to this PC and paired devices."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -98,7 +98,7 @@ function xpBar(c, big = false) {
 
 function icon(item, count = 0) {
   // The game's own picture when "item pictures from my WoW install" is on and
-  // this one has been read; Rosterbook's drawing otherwise (and if it fails to load).
+  // this one has been read; RosterBook's drawing otherwise (and if it fails to load).
   const g = cur();
   const pic = item.icon && g?.iconSet?.has(item.icon)
     ? `<img class="gp" src="/api/icon/${encodeURIComponent(g.id)}/${item.icon}" alt="" loading="lazy" decoding="async">`
@@ -250,7 +250,7 @@ function renderRoster() {
       </div>` : ''}`;
 }
 
-// A game on this PC started saving Rosterbook data but isn't shown (PC only).
+// A game on this PC started saving RosterBook data but isn't shown (PC only).
 function suggestionBanner() {
   const list = state.data?.suggestions || [];
   if (state.session?.role !== 'owner' || !list.length) return '';
@@ -259,7 +259,7 @@ function suggestionBanner() {
   const version = s.gameVersion ? ` ${esc(s.gameVersion.split('.').slice(0, 3).join('.'))}` : '';
   const [text, action, label] = {
     game: [`<b>New characters found</b> in ${esc(s.name)}${s.lastSaved ? `, saved ${ago(s.lastSaved)}` : ''}.`, 'add', 'Show them'],
-    addon: [`<b>${esc(s.name)}</b> doesn’t have the Rosterbook add-on yet.`, 'install', 'Install add-on'],
+    addon: [`<b>${esc(s.name)}</b> doesn’t have the RosterBook add-on yet.`, 'install', 'Install add-on'],
     'addon-update': [`<b>${esc(s.name)}</b> was updated${version ? ` to${version}` : ''}. Update the add-on so the game doesn’t switch it off.`, 'install', 'Update add-on'],
   }[s.kind] || [];
   if (!text) return '';
@@ -709,8 +709,8 @@ function render() {
     roster.innerHTML = '';
     detail.innerHTML = `<div class="empty"><h2>Choose your games</h2>
       <p>${state.session?.role === 'owner'
-        ? 'Rosterbook needs to know where World of Warcraft keeps its saved data.'
-        : 'Rosterbook hasn’t been set up yet. Open it on your PC to choose your games.'}</p>
+        ? 'RosterBook needs to know where World of Warcraft keeps its saved data.'
+        : 'RosterBook hasn’t been set up yet. Open it on your PC to choose your games.'}</p>
       ${state.session?.role === 'owner' ? '<button class="btn primary" data-open-setup>Set up games</button>' : ''}</div>`;
     return;
   }
@@ -727,7 +727,7 @@ function render() {
   if (state.query.length >= 2) return renderSearch(state.query);
   if (pick == null) {
     detail.innerHTML = `<div class="empty"><h2>No characters yet</h2>
-      <p>Log in to a character with the Rosterbook add-on enabled, then type <kbd>/reload</kbd> or log out. This page updates on its own.</p>
+      <p>Log in to a character with the RosterBook add-on enabled, then type <kbd>/reload</kbd> or log out. This page updates on its own.</p>
       ${g.errors?.length ? `<p class="note">${g.errors.map(esc).join('<br>')}</p>` : ''}
       ${state.session?.role === 'owner' ? '<button class="btn" data-open-setup>Check the add-on</button>' : ''}</div>`;
     return;
@@ -744,7 +744,7 @@ function renderOverview() {
     const version = s.gameVersion ? ` ${esc(s.gameVersion.split('.').slice(0, 3).join('.'))}` : '';
     const text = {
       game: `<b>New characters found</b> in ${esc(s.name)}${s.lastSaved ? `, saved ${ago(s.lastSaved)}` : ''}.`,
-      addon: `<b>${esc(s.name)}</b> doesn’t have the Rosterbook add-on yet.`,
+      addon: `<b>${esc(s.name)}</b> doesn’t have the RosterBook add-on yet.`,
       'addon-update': `<b>${esc(s.name)}</b> was updated${version ? ` to${version}` : ''}. Update the add-on so the game doesn’t switch it off.`,
     }[s.kind];
     const action = s.kind === 'game' ? 'add' : 'install';
@@ -779,7 +779,7 @@ function renderUnpaired() {
   detail.innerHTML = `<div class="empty">
     <h2>Connect this device</h2>
     ${failed ? '<p><b>That code didn’t work.</b> Codes expire after 5 minutes and work once. Make a new one on your PC.</p>' : ''}
-    <p>On your PC, open Rosterbook and choose <b>Connect a device</b>. Then scan the code with this device’s camera.</p>
+    <p>On your PC, open RosterBook and choose <b>Connect a device</b>. Then scan the code with this device’s camera.</p>
   </div>`;
 }
 
@@ -850,8 +850,8 @@ async function gamesTab() {
             const name = chosen.get(a.gameId)?.name || defaultGameName(f, a);
             return `<div class="acct" data-game-id="${esc(a.gameId)}" data-sv="${esc(a.savedVariablesDir)}" data-flavor="${esc(f.path)}">
               <input type="checkbox" ${on ? 'checked' : ''} aria-label="Show ${esc(name)}">
-              <div class="name-row"><input type="text" value="${esc(name)}" aria-label="Name shown in Rosterbook"><span class="hint">Account ${esc(a.name)}</span></div>
-              <span class="meta">${a.hasData ? `Data saved ${ago(a.lastSaved)}` : 'No Rosterbook data yet. Install the add-on, then log in to a character.'}</span>
+              <div class="name-row"><input type="text" value="${esc(name)}" aria-label="Name shown in RosterBook"><span class="hint">Account ${esc(a.name)}</span></div>
+              <span class="meta">${a.hasData ? `Data saved ${ago(a.lastSaved)}` : 'No RosterBook data yet. Install the add-on, then log in to a character.'}</span>
             </div>`;
           }).join('') : '<p class="hint">No accounts yet. Log in to this game once.</p>'}
         </div>`;
@@ -859,7 +859,7 @@ async function gamesTab() {
     </div>`).join('');
 
   return `
-    ${first ? '<p class="note">Choose which games to show. Rosterbook found these on this PC.</p>' : ''}
+    ${first ? '<p class="note">Choose which games to show. RosterBook found these on this PC.</p>' : ''}
     ${installs || '<p class="note">No World of Warcraft installs found. Add the folder that contains your WoW install below.</p>'}
     ${pictureSettings()}
     <div class="group">
@@ -883,7 +883,7 @@ function pictureSettings() {
   return `<div class="group">
     <h3>Item pictures</h3>
     <label class="switch"><input type="checkbox" data-game-icons ${on ? 'checked' : ''}> Show item pictures from my WoW install</label>
-    <p class="note">Reads the icons for your characters' items from the game's files on this PC. Nothing is downloaded, and the pictures are only shown to you and your connected devices. When off, Rosterbook uses its own drawings.</p>
+    <p class="note">Reads the icons for your characters' items from the game's files on this PC. Nothing is downloaded, and the pictures are only shown to you and your connected devices. When off, RosterBook uses its own drawings.</p>
     ${on && status ? `<ul class="pic-status">${status}</ul>` : ''}
   </div>`;
 }
@@ -921,13 +921,13 @@ function appearanceTab() {
 function aboutTab() {
   const s = state.session || {};
   return `<div class="group">
-    <h3>Rosterbook ${esc(s.version || '')}</h3>
+    <h3>RosterBook ${esc(s.version || '')}</h3>
     <p class="note">Add-on bundled with this version: ${esc(s.addonVersion || 'unknown')}.</p>
-    <p class="note">Everything stays on this PC and your home network. Rosterbook has no accounts and sends nothing to the internet.</p>
+    <p class="note">Everything stays on this PC and your home network. RosterBook has no accounts and sends nothing to the internet.</p>
     ${setupCache?.settingsPath && s.role === 'owner' ? `<p class="note">Settings file: ${esc(setupCache.settingsPath)}</p>` : ''}
   </div>
   <div class="group">
-    <p class="note">Rosterbook is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc.</p>
+    <p class="note">RosterBook is not affiliated with or endorsed by Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc.</p>
   </div>`;
 }
 
@@ -1114,7 +1114,7 @@ async function openConnect() {
       <p class="note">Your firewall is probably blocking port ${pairing.port}. Allow it, then scan again:</p>
       <pre class="cmd">sudo ufw allow ${pairing.port}/tcp</pre>
       <pre class="cmd">sudo firewall-cmd --add-port=${pairing.port}/tcp --permanent && sudo firewall-cmd --reload</pre>
-      <p class="note">On Windows, allow Rosterbook when Windows Firewall asks, on private networks. Guest Wi-Fi networks usually can’t see other devices.</p>
+      <p class="note">On Windows, allow RosterBook when Windows Firewall asks, on private networks. Guest Wi-Fi networks usually can’t see other devices.</p>
     </details>`);
   clearInterval(pairTimer);
   pairTimer = setInterval(() => {

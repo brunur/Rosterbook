@@ -1,4 +1,4 @@
-//! The character model shown by the app, built from the Rosterbook add-on's
+//! The character model shown by the app, built from the RosterBook add-on's
 //! saved variable (`Rosterbook.lua` → `RosterbookDB`).
 
 use crate::lua::parse_saved_variables;
@@ -278,7 +278,7 @@ pub fn build(db: &Value, now: i64) -> GameData {
     let mut errors = Vec::new();
     if let Some(schema) = int(db, "schema") {
         if schema > SUPPORTED_SCHEMA {
-            errors.push(format!("Saved data uses a newer format (schema {schema}). Update Rosterbook."));
+            errors.push(format!("Saved data uses a newer format (schema {schema}). Update RosterBook."));
         }
     }
 

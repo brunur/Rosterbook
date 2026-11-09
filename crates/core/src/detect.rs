@@ -21,7 +21,7 @@ pub struct Flavor {
     pub folder: String,
     pub name: String,
     pub path: PathBuf,
-    /// Version of the Rosterbook add-on installed in this flavor, if any.
+    /// Version of the RosterBook add-on installed in this flavor, if any.
     pub addon_version: Option<String>,
     /// The add-on is installed but older than the app's copy, or doesn't list
     /// the installed game version (WoW would switch it off as out of date).

@@ -1,4 +1,4 @@
-//! Rosterbook core: reads the in-game add-on's saved data and handles
+//! RosterBook core: reads the in-game add-on's saved data and handles
 //! settings, game detection and add-on installation. No network code here.
 
 pub mod addon;

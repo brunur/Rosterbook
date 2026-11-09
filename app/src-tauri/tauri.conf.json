@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Rosterbook",
+  "productName": "RosterBook",
   "mainBinaryName": "rosterbook",
   "identifier": "net.rosterbook.desktop",
   "build": {
@@ -19,8 +19,8 @@
     "targets": "all",
     "category": "Utility",
     "shortDescription": "See your World of Warcraft characters on any screen.",
-    "longDescription": "Rosterbook reads what its in-game add-on saves and shows your characters' gold, bags, bank, gear, reputation and rested XP on this PC and on phones or tablets on your home network.",
-    "copyright": "© 2026 Bob. All rights reserved. Rosterbook is not affiliated with or endorsed by Blizzard Entertainment.",
+    "longDescription": "RosterBook reads what its in-game add-on saves and shows your characters' gold, bags, bank, gear, reputation and rested XP on this PC and on phones or tablets on your home network.",
+    "copyright": "© 2026 Bob. All rights reserved. RosterBook is not affiliated with or endorsed by Blizzard Entertainment.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
