@@ -25,6 +25,7 @@ fn png_to_blp(png_bytes: &[u8]) -> Vec<u8> {
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let info = reader.next_frame(&mut buf).unwrap();
     assert_eq!(info.color_type, png::ColorType::Rgba, "expects RGBA PNGs");
-    let bgra: Vec<u8> = buf[..info.buffer_size()].chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], p[3]]).collect();
+    let bgra: Vec<u8> =
+        buf[..info.buffer_size()].as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect();
     alt_ledger_casc::testing::blp(3, 8, 0, info.width, info.height, &bgra)
 }
