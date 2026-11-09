@@ -36,7 +36,7 @@ jobs:
           git diff --exit-code -- crates/core/tests/fixtures
 
       - name: Tests
-        run: cargo test --workspace --exclude alt-ledger
+        run: cargo test --workspace --exclude rosterbook
 
       - name: Lints
         run: cargo clippy --workspace --all-targets -- -D warnings

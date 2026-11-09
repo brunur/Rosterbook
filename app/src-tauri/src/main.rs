@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    alt_ledger_app::run();
+    rosterbook_app::run();
 }

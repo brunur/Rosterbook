@@ -51,24 +51,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "alt-ledger"
-version = "0.1.0"
-dependencies = [
- "alt-ledger-core",
- "alt-ledger-queue",
- "alt-ledger-server",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "alt-ledger-casc"
 version = "0.1.0"
 dependencies = [
@@ -4466,6 +4448,24 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rosterbook"
+version = "0.1.0"
+dependencies = [
+ "alt-ledger-core",
+ "alt-ledger-queue",
+ "alt-ledger-server",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tokio",
+ "url",
 ]
 
 [[package]]

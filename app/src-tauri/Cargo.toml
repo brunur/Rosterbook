@@ -1,18 +1,18 @@
 [package]
-name = "alt-ledger"
+name = "rosterbook"
 description = "RosterBook desktop app: keeps the local server running in the tray and shows it in a window."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-default-run = "alt-ledger"
+default-run = "rosterbook"
 
 [lib]
-name = "alt_ledger_app"
+name = "rosterbook_app"
 path = "src/lib.rs"
 
 [[bin]]
-name = "alt-ledger"
+name = "rosterbook"
 path = "src/main.rs"
 
 [build-dependencies]

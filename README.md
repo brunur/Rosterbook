@@ -86,7 +86,7 @@ dev/make_sample.py      builds sample data for trying the UI
 Desktop app:
 
 ```sh
-cargo run -p alt-ledger
+cargo run -p rosterbook
 ```
 
 On Linux, run `sh dev/install-desktop-entry.sh` once so the window gets RosterBook's icon in the taskbar and the app appears in your app menu (installed packages do this themselves).
@@ -104,7 +104,7 @@ Both share settings in your config folder (`%APPDATA%\RosterBook` on Windows, `~
 ### Tests
 
 ```sh
-cargo test --workspace --exclude alt-ledger
+cargo test --workspace --exclude rosterbook
 python3 addon/test/run_addon_test.py crates/core/tests/fixtures/Rosterbook.forever.lua
 python3 addon/test/run_addon_test.py --retail crates/core/tests/fixtures/Rosterbook.retail.lua
 python3 addon/test/run_panel_test.py            # in-game panel, Forever (prints each tab)

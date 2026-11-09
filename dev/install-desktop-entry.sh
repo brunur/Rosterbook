@@ -14,7 +14,7 @@ data="${XDG_DATA_HOME:-$HOME/.local/share}"
 apps="$data/applications"
 icons="$data/icons/hicolor"
 # Must match the window's class / Wayland app ID, which is the binary name.
-id="alt-ledger"
+id="rosterbook"
 
 if [ "${1:-}" = "--remove" ]; then
     rm -f "$apps/$id.desktop"
@@ -51,4 +51,4 @@ command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$
 command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -t "$icons" 2>/dev/null || true
 
 echo "Installed. Launches: $bin"
-[ -x "$bin" ] || echo "(Build it first with: cargo build -p alt-ledger)"
+[ -x "$bin" ] || echo "(Build it first with: cargo build -p rosterbook)"
