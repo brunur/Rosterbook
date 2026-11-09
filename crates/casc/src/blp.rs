@@ -83,8 +83,8 @@ pub fn decode(d: &[u8]) -> Result<(u32, u32, Vec<u8>)> {
             if mip.len() < pixels * 4 {
                 return Err(bad("BLP pixel data is short"));
             }
-            for (o, px) in rgba.chunks_exact_mut(4).zip(mip.chunks_exact(4)) {
-                o.copy_from_slice(&[px[2], px[1], px[0], px[3]]);
+            for (o, px) in rgba.as_chunks_mut::<4>().0.iter_mut().zip(mip.as_chunks::<4>().0) {
+                *o = [px[2], px[1], px[0], px[3]];
             }
         }
         _ => return Err(bad("unsupported BLP compression")),
