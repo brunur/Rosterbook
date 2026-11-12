@@ -1165,7 +1165,6 @@ async function fetchSession() {
   const owner = state.session.role === 'owner';
   $('#connect-btn').hidden = !owner;
   $('#settings-btn').hidden = state.session.role === 'unpaired';
-  $('#queue-btn').hidden = state.session.role === 'unpaired';
   $('#realm-status-btn').hidden = state.session.role === 'unpaired';
   $('.search').hidden = state.session.role === 'unpaired';
 }
