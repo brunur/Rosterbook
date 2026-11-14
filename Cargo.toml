@@ -4,7 +4,7 @@ members = ["crates/core", "crates/casc", "crates/queue", "crates/queue-watcher",
 default-members = ["crates/core", "crates/casc", "crates/queue", "crates/queue-watcher", "crates/server"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Bob"]
 repository = "https://github.com/Brunur/Rosterbook"

@@ -52,7 +52,7 @@ dependencies = [
 
 [[package]]
 name = "alt-ledger-casc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "md-5",
@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "alt-ledger-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs 6.0.0",
@@ -74,7 +74,7 @@ dependencies = [
 
 [[package]]
 name = "alt-ledger-queue"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alt-ledger-core",
  "anyhow",
@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "alt-ledger-queue-watcher"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alt-ledger-core",
  "alt-ledger-queue",
@@ -99,7 +99,7 @@ dependencies = [
 
 [[package]]
 name = "alt-ledger-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alt-ledger-casc",
  "alt-ledger-core",
@@ -4452,7 +4452,7 @@ dependencies = [
 
 [[package]]
 name = "rosterbook"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alt-ledger-core",
  "alt-ledger-queue",
