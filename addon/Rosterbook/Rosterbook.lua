@@ -285,15 +285,23 @@ local function scanEquipment()
 end
 
 -- Walks a header/row list, temporarily expanding collapsed headers so nothing
--- is missed, then puts the player's UI back the way it was.
+-- is missed, then puts the player's UI back the way it was. Repeats the
+-- expand pass until nothing new turns up, so a header nested inside another
+-- collapsed header (retail's currency list has these) gets caught too, once
+-- its parent's expansion makes it visible — not just one level deep.
 local function withExpandedHeaders(getNum, getInfo, expand, collapse, visit)
   local collapsed = {}
-  for i = getNum(), 1, -1 do
-    local name, isHeader, isExpanded = getInfo(i)
-    if isHeader and not isExpanded then
-      collapsed[name] = true
-      expand(i)
+  for _ = 1, 10 do -- a few passes covers any realistic nesting depth
+    local foundCollapsed = false
+    for i = getNum(), 1, -1 do
+      local name, isHeader, isExpanded = getInfo(i)
+      if isHeader and not isExpanded then
+        collapsed[name] = true
+        expand(i)
+        foundCollapsed = true
+      end
     end
+    if not foundCollapsed then break end
   end
   for i = 1, getNum() do visit(i) end
   for i = getNum(), 1, -1 do

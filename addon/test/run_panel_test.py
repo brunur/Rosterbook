@@ -283,7 +283,8 @@ by_label["Currency"].Click(by_label["Currency"])
 currency = show("Currency (recheck)", detail_scroll)
 check("Merchant's Favor" in currency and "45" in currency, "uncapped currency shown")
 check("Honor Points" in currency and "2,450" in currency and "4,000" in currency, "capped currency shows current / max")
-check("Seasonal" not in currency, "collapsed currency header itself isn't listed as a row")
+check("Darkmoon Prize Ticket" in currency, "currency nested two header levels deep (behind both Seasonal and Darkmoon Faire) is still found")
+check("Seasonal" not in currency and "Darkmoon Faire" not in currency, "collapsed currency headers themselves aren't listed as rows")
 
 by_label["Overview"].Click(by_label["Overview"])
 prof_name = "Blacksmithing" if IS_RETAIL else "Leatherworking"

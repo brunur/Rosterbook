@@ -141,16 +141,27 @@ end
 function ExpandFactionHeader(i) visibleFactions()[i][3] = false end
 function CollapseFactionHeader(i) visibleFactions()[i][3] = true end
 
+-- "Seasonal" nests a second header ("Darkmoon Faire") one level deeper, like
+-- retail's own currency list does — a header inside a collapsed header is
+-- itself invisible (and collapsed) until its parent gets expanded first.
 local currencies = {
-  { name = "Seasonal", isHeader = true, isHeaderExpanded = false },
-  { name = "Merchant's Favor", currencyID = 3012, quantity = 45, maxQuantity = 0, iconFileID = 133784, discovered = true, quality = 1 },
-  { name = "Darkmoon Prize Ticket", currencyID = 515, quantity = 12, maxQuantity = 0, iconFileID = 134441, discovered = true, quality = 1 },
-  { name = "Honor Points", currencyID = 1792, quantity = 2450, maxQuantity = 4000, iconFileID = 133784, discovered = true, quality = 1 },
+  { name = "Seasonal", isHeader = true, isHeaderExpanded = false, depth = 0 },
+  { name = "Darkmoon Faire", isHeader = true, isHeaderExpanded = false, depth = 1 },
+  { name = "Merchant's Favor", currencyID = 3012, quantity = 45, maxQuantity = 0, iconFileID = 133784, discovered = true, quality = 1, depth = 2 },
+  { name = "Darkmoon Prize Ticket", currencyID = 515, quantity = 12, maxQuantity = 0, iconFileID = 134441, discovered = true, quality = 1, depth = 2 },
+  { name = "Honor Points", currencyID = 1792, quantity = 2450, maxQuantity = 4000, iconFileID = 133784, discovered = true, quality = 1, depth = 1 },
 }
 local function visibleCurrencies()
-  local out, show = {}, true
+  local out, showAt = {}, {}
   for _, c in ipairs(currencies) do
-    if c.isHeader then out[#out + 1] = c; show = c.isHeaderExpanded elseif show then out[#out + 1] = c end
+    local visible = true
+    for d = 0, c.depth - 1 do
+      if not showAt[d] then visible = false; break end
+    end
+    if visible then
+      out[#out + 1] = c
+      if c.isHeader then showAt[c.depth] = c.isHeaderExpanded end
+    end
   end
   return out
 end
