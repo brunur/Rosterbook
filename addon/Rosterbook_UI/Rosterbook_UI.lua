@@ -122,10 +122,11 @@ local function money(copper)
 end
 
 -- Short gold only ("12,345g") for the narrow character list.
+local function commas(n)
+  return tostring(math.floor(n or 0)):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+end
 local function goldShort(copper)
-  local g = math.floor((copper or 0) / 10000)
-  local s = tostring(g):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-  return s .. "|cffffd700g|r"
+  return commas(math.floor((copper or 0) / 10000)) .. "|cffffd700g|r"
 end
 
 local function duration(seconds)
@@ -864,6 +865,19 @@ Tabs.reputation = function(c)
   return rows
 end
 
+Tabs.currency = function(c)
+  local rows = {}
+  for _, cur in ipairs(c.currencies or {}) do
+    local right = WHITE .. commas(cur.quantity) .. "|r"
+    if cur.maxQuantity and cur.maxQuantity > 0 then
+      right = right .. GREY .. " / " .. commas(cur.maxQuantity) .. "|r"
+    end
+    rows[#rows + 1] = itemRow(cur, right)
+  end
+  if #rows == 0 then rows[1] = line("No currencies recorded.", "") end
+  return rows
+end
+
 -- Cross-character item search: every character's gear, bags and bank, plus
 -- the Warband bank, matched by item name.
 local function findItems(query)
@@ -931,6 +945,7 @@ local TAB_ORDER = {
   { key = "bank", label = "Bank" },
   { key = "gear", label = "Gear" },
   { key = "reputation", label = "Reputation" },
+  { key = "currency", label = "Currency" },
 }
 
 -- ---------------------------------------------------------------------------

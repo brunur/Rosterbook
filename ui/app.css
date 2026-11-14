@@ -371,6 +371,13 @@ h2.sec.rep-group:first-child { margin-top: 0; }
 .gear-row .ico { width: 36px; height: 36px; }
 .gear-row .gi { width: 22px; height: 22px; }
 
+.currencies { display: grid; gap: 0; max-width: 760px; }
+.currency-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.currency-row dt { margin: 0; display: flex; align-items: center; gap: 10px; }
+.currency-row dd { margin: 0; color: var(--muted); }
+.currency-row .ico { width: 28px; height: 28px; }
+.currency-row .gi { width: 18px; height: 18px; }
+
 /* ---------- search ---------- */
 .results h1 { font-family: var(--serif); font-weight: 600; font-size: 2rem; margin: 0 0 4px; }
 .results .lead { color: var(--muted); margin: 0 0 24px; }

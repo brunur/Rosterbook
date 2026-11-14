@@ -27,11 +27,14 @@ impl GameData {
     pub fn icon_ids(&self) -> std::collections::BTreeSet<u32> {
         let bags = self.characters.iter().flat_map(|c| c.bags.iter().chain(&c.bank));
         let warband = self.warband.iter().flat_map(|w| &w.tabs);
-        bags.chain(warband)
+        let mut ids: std::collections::BTreeSet<u32> = bags
+            .chain(warband)
             .flat_map(|b| &b.items)
             .chain(self.characters.iter().flat_map(|c| &c.equipment))
             .filter_map(|i| i.icon)
-            .collect()
+            .collect();
+        ids.extend(self.characters.iter().flat_map(|c| &c.currencies).filter_map(|cur| cur.icon));
+        ids
     }
 }
 
@@ -87,6 +90,7 @@ pub struct Character {
     pub bank_scanned: Option<i64>,
     pub professions: Vec<Profession>,
     pub reputations: Vec<Reputation>,
+    pub currencies: Vec<Currency>,
     pub mail_count: i64,
     pub mail_expires: Option<i64>,
 }
@@ -173,6 +177,19 @@ pub struct Reputation {
     pub pct: f64,
     /// Sort key: higher = more progress overall.
     pub rank: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Currency {
+    pub id: i64,
+    pub name: String,
+    /// The game's icon file ID, for showing a picture from the local install.
+    pub icon: Option<u32>,
+    pub quantity: i64,
+    /// Set only for currencies with a cap (weekly honor, seasonal tokens, …).
+    pub max_quantity: Option<i64>,
+    pub quality: i64,
 }
 
 // ---------------------------------------------------------------------------
@@ -374,6 +391,18 @@ fn reputation(r: &Value) -> Reputation {
     }
 }
 
+fn currency(v: &Value) -> Currency {
+    let id = int(v, "id").unwrap_or(0);
+    Currency {
+        id,
+        name: text(v, "name").unwrap_or_else(|| format!("Currency #{id}")),
+        icon: int(v, "icon").map(|i| i as u32),
+        quantity: int(v, "quantity").unwrap_or(0),
+        max_quantity: int(v, "maxQuantity"),
+        quality: int(v, "quality").unwrap_or(1),
+    }
+}
+
 fn character(c: &Value, now: i64) -> Character {
     let class_id = int(c, "classId").unwrap_or(0);
     let (class_name, class_token, class_color) = class_info(class_id);
@@ -467,6 +496,7 @@ fn character(c: &Value, now: i64) -> Character {
             })
             .collect(),
         reputations,
+        currencies: list(c.get("currencies").unwrap_or(&Value::Null)).into_iter().map(currency).collect(),
         mail_count: int(&mail, "count").unwrap_or(0),
         mail_expires: int(&mail, "soonestExpiry"),
     }
@@ -493,6 +523,10 @@ mod tests {
         assert_eq!(c.xp.max, 0, "max-level characters have no XP bar");
         assert_eq!(c.bank[0].name, "Mats");
         assert!(c.reputations.iter().any(|r| r.label == "Renown 22"));
+        assert_eq!(c.currencies.len(), 2);
+        assert!(c.currencies.iter().any(|cur| cur.name == "Merchant's Favor" && cur.max_quantity.is_none()));
+        let honor = c.currencies.iter().find(|cur| cur.name == "Honor Points").expect("honor points");
+        assert_eq!((honor.quantity, honor.max_quantity), (2450, Some(4000)));
         let w = g.warband.expect("warband bank");
         assert_eq!(w.tabs[0].items[0].count, 200);
     }

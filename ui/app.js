@@ -491,12 +491,12 @@ function selectCharacter(id, tab, highlight = null) {
 }
 
 // ---------- character detail ----------
-const TABS = [['overview', 'Overview'], ['bags', 'Bags'], ['bank', 'Bank'], ['gear', 'Gear'], ['rep', 'Reputation']];
+const TABS = [['overview', 'Overview'], ['bags', 'Bags'], ['bank', 'Bank'], ['gear', 'Gear'], ['rep', 'Reputation'], ['currency', 'Currency']];
 
 function renderCharacter(c) {
   const [used, total] = slotsUsed(c.bags);
   const bankItems = c.bank.reduce((n, b) => n + b.items.length, 0);
-  const counts = { bags: `${used}/${total}`, bank: c.bankVisited ? bankItems : '', rep: c.reputations.length };
+  const counts = { bags: `${used}/${total}`, bank: c.bankVisited ? bankItems : '', rep: c.reputations.length, currency: c.currencies.length };
   const r = c.xp.rested;
 
   detail.style.setProperty('--cls', c.classColor);
@@ -533,6 +533,7 @@ function renderTab(c) {
       : `<p class="note">No bank saved for ${esc(c.firstName)} yet. Open the bank on this character once and it will appear here.</p>`;
     case 'gear': return renderGear(c);
     case 'rep': return renderReps(c);
+    case 'currency': return renderCurrencies(c);
     default: return renderOverview(c);
   }
 }
@@ -607,6 +608,19 @@ function renderReps(c) {
     groups.get(k).push(r);
   }
   return [...groups].map(([name, reps]) => `<h2 class="sec rep-group">${esc(name)}</h2><div class="reps">${reps.map(repRow).join('')}</div>`).join('');
+}
+
+function currencyRow(cur) {
+  // classId 18 ("Currency") picks the coin glyph when there's no game picture cached.
+  return `<div class="currency-row" style="--q:var(--q${cur.quality ?? 1})">
+    <dt>${icon({ ...cur, classId: 18 })}<span>${esc(cur.name)}</span></dt>
+    <dd class="num">${fmt(cur.quantity)}${cur.maxQuantity ? ` / ${fmt(cur.maxQuantity)}` : ''}</dd>
+  </div>`;
+}
+
+function renderCurrencies(c) {
+  if (!c.currencies.length) return '<p class="note">No currencies saved.</p>';
+  return `<dl class="currencies">${c.currencies.map(currencyRow).join('')}</dl>`;
 }
 
 function renderWarband(w) {
@@ -717,7 +731,7 @@ function render() {
   if (!games[state.game]) state.game = 0;
   if (games.length < 2) state.overview = false;
   renderRoster();
-  if (state.overview) return renderOverview();
+  if (state.overview) return renderAccountsOverview();
   const g = cur();
   const shown = sortedChars(g);
   let pick = state.picks[g.id];
@@ -737,7 +751,7 @@ function render() {
 }
 
 // All added games at a glance, instead of switching tabs one at a time.
-function renderOverview() {
+function renderAccountsOverview() {
   const games = state.data.games;
   const suggestions = state.session?.role === 'owner' ? state.data.suggestions || [] : [];
   const alerts = suggestions.map((s) => {

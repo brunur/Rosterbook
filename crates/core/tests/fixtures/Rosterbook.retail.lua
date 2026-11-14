@@ -109,6 +109,23 @@ RosterbookDB = {
 					["subclassId"] = 10,
 				},
 			},
+			["currencies"] = {
+				[1] = {
+					["icon"] = 133784,
+					["id"] = 3012,
+					["name"] = "Merchant's Favor",
+					["quality"] = 1,
+					["quantity"] = 45,
+				},
+				[2] = {
+					["icon"] = 133784,
+					["id"] = 1792,
+					["maxQuantity"] = 4000,
+					["name"] = "Honor Points",
+					["quality"] = 1,
+					["quantity"] = 2450,
+				},
+			},
 			["faction"] = "Alliance",
 			["firstName"] = "Norasonia",
 			["guid"] = "Player-4620-009148B3",

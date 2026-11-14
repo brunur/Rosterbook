@@ -396,6 +396,32 @@ local function scanReputations()
   me.reputations = reps
 end
 
+-- Every currency the character has discovered (Honor, seasonal Darkmoon
+-- tokens, renown-rank tokens, etc.) — whatever Blizzard's own Currency tab
+-- shows. Headers are walked but not recorded, same treatment as reputations.
+local function scanCurrencies()
+  local getNum = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyListSize
+  local getInfo = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyListInfo
+  if not (getNum and getInfo) then return end
+
+  local currencies = {}
+  withExpandedHeaders(getNum,
+    function(i) local c = getInfo(i); return c and c.name, c and c.isHeader, c and c.isHeaderExpanded end,
+    function(i) C_CurrencyInfo.ExpandCurrencyList(i, true) end,
+    function(i) C_CurrencyInfo.ExpandCurrencyList(i, false) end,
+    function(i)
+      local c = getInfo(i)
+      if c and not c.isHeader and c.discovered and c.currencyID then
+        currencies[#currencies + 1] = {
+          id = c.currencyID, name = c.name, icon = c.iconFileID,
+          quantity = c.quantity, maxQuantity = (c.maxQuantity or 0) > 0 and c.maxQuantity or nil,
+          quality = c.quality,
+        }
+      end
+    end)
+  me.currencies = currencies
+end
+
 local function scanMail()
   if not GetInboxNumItems then return end
   local num = GetInboxNumItems()
@@ -429,7 +455,7 @@ end
 
 local function scanAll()
   scanBasics(); scanMoney(); scanXP(); scanLocation()
-  scanBags(); scanEquipment(); scanSkills(); scanReputations()
+  scanBags(); scanEquipment(); scanSkills(); scanReputations(); scanCurrencies()
 end
 
 -- ---------------------------------------------------------------------------
@@ -464,6 +490,7 @@ handlers.ZONE_CHANGED_INDOORS = handlers.ZONE_CHANGED
 handlers.PLAYER_EQUIPMENT_CHANGED = function() soon("gear", scanEquipment) end
 handlers.SKILL_LINES_CHANGED = function() soon("skills", scanSkills) end
 handlers.UPDATE_FACTION = function() soon("reps", scanReputations) end
+handlers.CURRENCY_DISPLAY_UPDATE = function() soon("currency", scanCurrencies) end
 handlers.MAIL_INBOX_UPDATE = function() soon("mail", scanMail) end
 handlers.BANKFRAME_OPENED = function() bankOpen = true; soon("bank", scanBank) end
 handlers.BANKFRAME_CLOSED = function() bankOpen = false end

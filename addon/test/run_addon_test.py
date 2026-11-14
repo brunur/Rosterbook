@@ -141,6 +141,25 @@ end
 function ExpandFactionHeader(i) visibleFactions()[i][3] = false end
 function CollapseFactionHeader(i) visibleFactions()[i][3] = true end
 
+local currencies = {
+  { name = "Seasonal", isHeader = true, isHeaderExpanded = false },
+  { name = "Merchant's Favor", currencyID = 3012, quantity = 45, maxQuantity = 0, iconFileID = 133784, discovered = true, quality = 1 },
+  { name = "Darkmoon Prize Ticket", currencyID = 515, quantity = 12, maxQuantity = 0, iconFileID = 134441, discovered = true, quality = 1 },
+  { name = "Honor Points", currencyID = 1792, quantity = 2450, maxQuantity = 4000, iconFileID = 133784, discovered = true, quality = 1 },
+}
+local function visibleCurrencies()
+  local out, show = {}, true
+  for _, c in ipairs(currencies) do
+    if c.isHeader then out[#out + 1] = c; show = c.isHeaderExpanded elseif show then out[#out + 1] = c end
+  end
+  return out
+end
+C_CurrencyInfo = {
+  GetCurrencyListSize = function() return #visibleCurrencies() end,
+  GetCurrencyListInfo = function(i) return visibleCurrencies()[i] end,
+  ExpandCurrencyList = function(i, expand) visibleCurrencies()[i].isHeaderExpanded = expand end,
+}
+
 function GetInboxNumItems() return 2 end
 function GetInboxHeaderInfo(i) return nil, nil, "Pyrela", "Ore", 0, 0, i == 1 and 29.5 or 2.25 end
 function RequestTimePlayed() FireEvent("TIME_PLAYED_MSG", 35556, 2147) end

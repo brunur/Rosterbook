@@ -273,11 +273,17 @@ GRID_TABS = {"Gear", "Bags", "Bank"}
 chars = show("Characters", char_scroll)
 check("Brannoc Galeforge" in chars and "(you)" in chars, "both characters listed, current marked")
 
-for label in ["Overview", "Bags", "Bank", "Gear", "Reputation"]:
+for label in ["Overview", "Bags", "Bank", "Gear", "Reputation", "Currency"]:
     by_label[label].Click(by_label[label])
     scroll = grid_scroll if label in GRID_TABS else detail_scroll
     out = show(label, scroll)
     check(out.strip() != "", f"{label} tab shows rows")
+
+by_label["Currency"].Click(by_label["Currency"])
+currency = show("Currency (recheck)", detail_scroll)
+check("Merchant's Favor" in currency and "45" in currency, "uncapped currency shown")
+check("Honor Points" in currency and "2,450" in currency and "4,000" in currency, "capped currency shows current / max")
+check("Seasonal" not in currency, "collapsed currency header itself isn't listed as a row")
 
 by_label["Overview"].Click(by_label["Overview"])
 prof_name = "Blacksmithing" if IS_RETAIL else "Leatherworking"
