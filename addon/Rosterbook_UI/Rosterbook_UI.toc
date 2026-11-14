@@ -1,8 +1,8 @@
 ## Interface: 120105, 16001
 ## Title: RosterBook |cff999999- In-game panel|r
-## Notes: An in-game window for the characters RosterBook records: gold, levels, gear, bags, bank, professions, reputations and a cross-character item search. Loads only when you open it (/rb).
+## Notes: An in-game window for the characters RosterBook records: gold, levels, gear, bags, bank, professions, reputations, currencies and a cross-character item search. Loads only when you open it (/rb).
 ## Author: Bob
-## Version: 0.4.1
+## Version: 0.4.2
 ## Dependencies: Rosterbook
 ## LoadOnDemand: 1
 ## SavedVariables: RosterbookUIDB
