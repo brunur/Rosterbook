@@ -52,7 +52,7 @@ jobs:
         with:
           projectPath: app/src-tauri
           tauriScript: npx --yes @tauri-apps/cli@2
-          args: ${{ matrix.args }} ${{ vars.UPDATES_ENABLED == 'true' && '--config app/src-tauri/tauri.release.conf.json' || '' }}
+          args: ${{ matrix.args }} ${{ vars.UPDATES_ENABLED == 'true' && '--config tauri.release.conf.json' || '' }}
           tagName: ${{ github.ref_name }}
           releaseName: RosterBook ${{ github.ref_name }}
           releaseBody: |
