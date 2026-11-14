@@ -477,7 +477,10 @@ handlers.TIME_PLAYED_MSG = function(total, thisLevel)
 end
 handlers.PLAYER_LOGOUT = function()
   if not me then return end
-  scanMoney(); scanXP(); scanLocation()
+  -- Money is already kept current by the PLAYER_MONEY event; don't re-read
+  -- GetMoney() here; a stray 0 read this late in logout would clobber the
+  -- correct saved value with nothing to gain.
+  scanXP(); scanLocation()
   if playedAt and me.played then
     local extra = math.floor(GetTime() - playedAt)
     me.played = me.played + extra
