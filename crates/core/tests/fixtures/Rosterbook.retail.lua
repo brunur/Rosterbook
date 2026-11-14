@@ -146,6 +146,24 @@ RosterbookDB = {
 			["playedThisLevel"] = 2147,
 			["powerMax"] = 475,
 			["powerToken"] = "MANA",
+			["recipes"] = {
+				[1] = {
+					["icon"] = 136241,
+					["id"] = 101,
+					["name"] = "Iron Buckler",
+					["output"] = 7069,
+					["profession"] = "Blacksmithing",
+					["reagents"] = {
+						[1] = { ["count"] = 2, ["icon"] = 133828, ["id"] = 2840, ["name"] = "Khorium Ore" },
+						-- GetItemIconByID returns 0 for an item not yet loaded; this must
+						-- never reach the icon-prefetch set (crates/core/src/model.rs
+						-- icon_ids): a 0 there fails the whole batch fetch and takes
+						-- every other icon down with it.
+						[2] = { ["count"] = 1, ["icon"] = 0, ["id"] = 9999, ["name"] = "Unloaded Reagent" },
+					},
+				},
+			},
+			["recipesScanned"] = 1792593450,
 			["professions"] = {
 				[1] = {
 					["expansion"] = "Khaz Algar Blacksmithing",

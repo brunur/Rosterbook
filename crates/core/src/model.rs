@@ -34,6 +34,14 @@ impl GameData {
             .filter_map(|i| i.icon)
             .collect();
         ids.extend(self.characters.iter().flat_map(|c| &c.currencies).filter_map(|cur| cur.icon));
+        ids.extend(self.characters.iter().flat_map(|c| &c.recipes).filter_map(|r| r.icon));
+        ids.extend(self.characters.iter().flat_map(|c| &c.recipes).flat_map(|r| &r.reagents).filter_map(|rg| rg.icon));
+        // 0 is never a real file ID — some "ByID" icon lookups return it for
+        // an item whose data hasn't finished loading yet (reagents are the
+        // case that hits this). One bad ID here fails the whole batch fetch,
+        // taking every other icon down with it, so it's dropped rather than
+        // sent.
+        ids.remove(&0);
         ids
     }
 }
@@ -89,6 +97,8 @@ pub struct Character {
     pub bank_visited: bool,
     pub bank_scanned: Option<i64>,
     pub professions: Vec<Profession>,
+    pub recipes: Vec<Recipe>,
+    pub recipes_scanned: Option<i64>,
     pub reputations: Vec<Reputation>,
     pub currencies: Vec<Currency>,
     pub mail_count: i64,
@@ -160,6 +170,28 @@ pub struct Profession {
     pub rank: i64,
     pub max: i64,
     pub secondary: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Reagent {
+    pub id: i64,
+    pub name: String,
+    pub count: i64,
+    /// The game's icon file ID, for showing a picture from the local install.
+    pub icon: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Recipe {
+    pub id: i64,
+    pub name: String,
+    pub profession: Option<String>,
+    /// The item this recipe produces, when the add-on could resolve one.
+    pub output: Option<i64>,
+    pub icon: Option<u32>,
+    pub reagents: Vec<Reagent>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -391,6 +423,28 @@ fn reputation(r: &Value) -> Reputation {
     }
 }
 
+fn reagent(v: &Value) -> Reagent {
+    let id = int(v, "id").unwrap_or(0);
+    Reagent {
+        id,
+        name: text(v, "name").unwrap_or_else(|| format!("Item #{id}")),
+        count: int(v, "count").unwrap_or(1),
+        icon: int(v, "icon").map(|i| i as u32),
+    }
+}
+
+fn recipe(v: &Value) -> Recipe {
+    let id = int(v, "id").unwrap_or(0);
+    Recipe {
+        id,
+        name: text(v, "name").unwrap_or_else(|| format!("Recipe #{id}")),
+        profession: text(v, "profession"),
+        output: int(v, "output"),
+        icon: int(v, "icon").map(|i| i as u32),
+        reagents: list(v.get("reagents").unwrap_or(&Value::Null)).into_iter().map(reagent).collect(),
+    }
+}
+
 fn currency(v: &Value) -> Currency {
     let id = int(v, "id").unwrap_or(0);
     Currency {
@@ -495,6 +549,8 @@ fn character(c: &Value, now: i64) -> Character {
                 secondary: text(p, "kind").as_deref() == Some("secondary"),
             })
             .collect(),
+        recipes: list(c.get("recipes").unwrap_or(&Value::Null)).into_iter().map(recipe).collect(),
+        recipes_scanned: int(c, "recipesScanned"),
         reputations,
         currencies: list(c.get("currencies").unwrap_or(&Value::Null)).into_iter().map(currency).collect(),
         mail_count: int(&mail, "count").unwrap_or(0),
@@ -527,6 +583,19 @@ mod tests {
         assert!(c.currencies.iter().any(|cur| cur.name == "Merchant's Favor" && cur.max_quantity.is_none()));
         let honor = c.currencies.iter().find(|cur| cur.name == "Honor Points").expect("honor points");
         assert_eq!((honor.quantity, honor.max_quantity), (2450, Some(4000)));
+        assert_eq!(c.recipes.len(), 1);
+        let recipe = &c.recipes[0];
+        assert_eq!(recipe.name, "Iron Buckler");
+        assert_eq!(recipe.profession.as_deref(), Some("Blacksmithing"));
+        assert_eq!(recipe.reagents[0].name, "Khorium Ore");
+        assert_eq!(recipe.reagents[0].count, 2);
+        assert_eq!(recipe.reagents[0].icon, Some(133_828));
+        assert_eq!(recipe.icon, Some(136_241));
+        assert_eq!(c.recipes_scanned, Some(1_792_593_450));
+        assert!(g.icon_ids().contains(&136_241), "recipe icon fed into the icon-prefetch set");
+        assert!(g.icon_ids().contains(&133_828), "reagent icon fed into the icon-prefetch set");
+        assert_eq!(recipe.reagents[1].icon, Some(0), "the model keeps the raw 0, same as every other field");
+        assert!(!g.icon_ids().contains(&0), "a 0 icon (not-yet-loaded reagent) must never reach the prefetch set");
         let w = g.warband.expect("warband bank");
         assert_eq!(w.tabs[0].items[0].count, 200);
     }

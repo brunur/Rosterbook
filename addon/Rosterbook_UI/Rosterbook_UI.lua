@@ -55,9 +55,10 @@ local function loadSettings()
   cfg = RosterbookUIDB
   cfg.sort = cfg.sort or "level"
   cfg.tab = cfg.tab or "overview"
-  -- "settings" is a popover, not a tab; "professions" and "find" were folded
-  -- into other tabs and a standalone search bar in a later version.
-  if cfg.tab == "settings" or cfg.tab == "professions" or cfg.tab == "find" then cfg.tab = "overview" end
+  -- "settings" is a popover, not a tab; "find" was folded into a standalone
+  -- search bar in a later version. "professions" used to be folded into
+  -- Overview too, but it's back as its own tab (with recipes).
+  if cfg.tab == "settings" or cfg.tab == "find" then cfg.tab = "overview" end
   cfg.settings = cfg.settings or {}
   for k, v in pairs(DEFAULTS) do
     if cfg.settings[k] == nil then cfg.settings[k] = v end
@@ -746,7 +747,7 @@ local function overviewTiles(c)
 end
 
 -- The name/level/XP header is drawn once above the tabs (see progressBar in
--- build()); the overview tab itself starts with the mailbox/professions rows.
+-- build()); the overview tab itself starts with the mailbox row.
 Tabs.overview = function(c)
   local rows = {}
   local isMe = c.guid == API.GetCurrentGUID()
@@ -758,24 +759,68 @@ Tabs.overview = function(c)
       { "Mailbox", "As of the last time this character opened the mailbox (" .. ago(c.mail.scanned) .. ")." })
   end
 
-  local groups = { { "primary", "Professions" }, { "secondary", "Secondary skills" } }
-  for _, g in ipairs(groups) do
-    local first = true
-    for _, p in ipairs(c.professions or {}) do
-      if p.kind == g[1] then
-        if first then rows[#rows + 1] = { kind = "space" }; rows[#rows + 1] = header(g[2]); first = false end
-        rows[#rows + 1] = bar(p.name, p.rank or 0, 0, p.max or 1, ("%d / %d"):format(p.rank or 0, p.max or 0), 0.2, 0.55, 0.9,
-          p.expansion and { p.name, p.expansion } or nil)
-      end
-    end
-  end
-
   if not isMe then
     rows[#rows + 1] = { kind = "space" }
     rows[#rows + 1] = { kind = "text", text = GREY .. "Forget this character…|r",
       tooltip = { "Forget this character", "Removes it from RosterBook, e.g. after deleting or transferring it. Logging in on it records it again." },
       onClick = function() StaticPopup_Show("ROSTERBOOK_FORGET", c.name, nil, c.guid) end }
   end
+  return rows
+end
+
+-- Tree: profession → (click) its recipes → (click a recipe) its reagents.
+-- Expand state is per character + per profession/recipe, and not saved —
+-- it's view state, not a setting, and resets to all-collapsed next time the
+-- panel opens.
+local openProfessions, openRecipes = {}, {}
+Tabs.professions = function(c)
+  local rows = {}
+  local groups = { { "primary", "Professions" }, { "secondary", "Secondary skills" } }
+  for _, g in ipairs(groups) do
+    local first = true
+    for _, p in ipairs(c.professions or {}) do
+      if p.kind == g[1] then
+        if first then rows[#rows + 1] = header(g[2]); first = false else rows[#rows + 1] = { kind = "space" } end
+        local profKey = c.guid .. "|" .. p.name
+        local profOpen = openProfessions[profKey]
+        rows[#rows + 1] = bar((profOpen and "v  " or ">  ") .. p.name, p.rank or 0, 0, p.max or 1,
+          ("%d / %d"):format(p.rank or 0, p.max or 0), 0.2, 0.55, 0.9, p.expansion and { p.name, p.expansion } or nil)
+        rows[#rows].onClick = function() openProfessions[profKey] = not profOpen; Panel.Refresh(true) end
+
+        if profOpen then
+          local recipes = {}
+          for _, r in ipairs(c.recipes or {}) do if r.profession == p.name then recipes[#recipes + 1] = r end end
+          table.sort(recipes, function(a, b) return (a.name or "") < (b.name or "") end)
+          if #recipes > 0 then
+            for _, r in ipairs(recipes) do
+              local recipeKey = c.guid .. "|" .. r.id
+              local recipeOpen = openRecipes[recipeKey]
+              local n = #(r.reagents or {})
+              rows[#rows + 1] = {
+                kind = "item", icon = itemIcon({ id = r.output }), itemId = r.output,
+                text = (recipeOpen and "v  " or ">  ") .. r.name,
+                right = GREY .. n .. " reagent" .. (n == 1 and "" or "s") .. "|r", indent = 1,
+                onClick = function() openRecipes[recipeKey] = not recipeOpen; Panel.Refresh(true) end,
+              }
+              if recipeOpen then
+                if n > 0 then
+                  for _, rg in ipairs(r.reagents) do
+                    rows[#rows + 1] = itemRow({ id = rg.id, name = rg.name or ("Item #" .. rg.id), quality = 1 },
+                      WHITE .. rg.count .. "x|r", 2)
+                  end
+                else
+                  rows[#rows + 1] = { kind = "text", text = GREY .. "No reagents.|r", indent = 2 }
+                end
+              end
+            end
+          else
+            rows[#rows + 1] = { kind = "text", text = GREY .. "Open this profession once to record its recipes.|r", indent = 1 }
+          end
+        end
+      end
+    end
+  end
+  if #rows == 0 then rows[1] = line("No professions learned yet.", "") end
   return rows
 end
 
@@ -944,6 +989,7 @@ local TAB_ORDER = {
   { key = "bags", label = "Bags" },
   { key = "bank", label = "Bank" },
   { key = "gear", label = "Gear" },
+  { key = "professions", label = "Professions" },
   { key = "reputation", label = "Reputation" },
   { key = "currency", label = "Currency" },
 }

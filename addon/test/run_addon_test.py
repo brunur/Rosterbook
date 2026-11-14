@@ -171,6 +171,35 @@ C_CurrencyInfo = {
   ExpandCurrencyList = function(i, expand) visibleCurrencies()[i].isHeaderExpanded = expand end,
 }
 
+-- Legacy trade skill window (classic-style clients). "Leatherworking" starts
+-- collapsed as a header, hiding its one recipe, to prove the header-expand
+-- scan actually reveals it rather than it being visible from the start.
+local tradeSkills = {
+  { name = "Leatherworking", isHeader = true, isExpanded = false },
+  { name = "Light Armor Kit", kind = "trivial",
+    outputLink = "|cffffffff|Hitem:4401::::::::1:::::|h[Light Armor Kit]|h|r",
+    reagents = { { name = "Light Leather", link = "|cffffffff|Hitem:2318::::::::1:::::|h[Light Leather]|h|r", count = 2 } } },
+}
+local function visibleTradeSkills()
+  local out, show = {}, true
+  for _, t in ipairs(tradeSkills) do
+    if t.isHeader then out[#out + 1] = t; show = t.isExpanded elseif show then out[#out + 1] = t end
+  end
+  return out
+end
+function GetItemIcon(id) return 100000 + id end
+function GetTradeSkillLine() return "Leatherworking", 38, 75 end
+function GetNumTradeSkills() return #visibleTradeSkills() end
+function GetTradeSkillInfo(i)
+  local t = visibleTradeSkills()[i]
+  return t.name, t.isHeader and "header" or (t.kind or "trivial"), 0, t.isExpanded
+end
+function ExpandTradeSkillSubClass(i) visibleTradeSkills()[i].isExpanded = true end
+function GetTradeSkillRecipeLink(i) return visibleTradeSkills()[i].outputLink end
+function GetTradeSkillNumReagents(i) local t = visibleTradeSkills()[i]; return t.reagents and #t.reagents or 0 end
+function GetTradeSkillReagentInfo(i, r) local rg = visibleTradeSkills()[i].reagents[r]; return rg.name, nil, rg.count end
+function GetTradeSkillReagentItemLink(i, r) return visibleTradeSkills()[i].reagents[r].link end
+
 function GetInboxNumItems() return 2 end
 function GetInboxHeaderInfo(i) return nil, nil, "Pyrela", "Ore", 0, 0, i == 1 and 29.5 or 2.25 end
 function RequestTimePlayed() FireEvent("TIME_PLAYED_MSG", 35556, 2147) end
@@ -186,9 +215,39 @@ RETAIL = r'''
 WOW_PROJECT_MAINLINE, WOW_PROJECT_ID = 1, 1
 function GetBuildInfo() return "12.1.5", "70448", "Oct 1 2026", 120105 end
 GetNumSkillLines, GetSkillLineInfo, GetFactionInfo, GetNumFactions, GetItemInfo = nil, nil, nil, nil, nil
+GetNumTradeSkills, GetTradeSkillInfo, GetTradeSkillLine = nil, nil, nil
 ExpandFactionHeader, CollapseFactionHeader = nil, nil
 function GetAverageItemLevel() return 612.4, 610.8 end
-C_Item = { GetItemInfo = function(l) return "x", l, 4, 610 end }
+C_Item = {
+  GetItemInfo = function(l)
+    if l == 2840 then return "Khorium Ore", l, 4, 610 end
+    return "x", l, 4, 610
+  end,
+  GetItemIconByID = function(id) return 100000 + id end,
+  RequestLoadItemDataByID = function() end,
+}
+
+-- Modern unified profession API. "Blacksmithing" has one learned recipe
+-- with one reagent, resolved to an item name through C_Item.GetItemInfo
+-- (the legacy path gets its reagent names straight from the trade skill
+-- API instead).
+-- GetProfessions() (below) returns nothing on current retail builds, so
+-- GetBaseProfessionInfo is the mock's only source for the open profession's
+-- name/rank/cap, same as the real fix.
+C_TradeSkillUI = {
+  GetBaseProfessionInfo = function()
+    return { professionName = "Blacksmithing", skillLevel = 85, maxSkillLevel = 100, isPrimaryProfession = true }
+  end,
+  GetAllRecipeIDs = function() return { 101 } end,
+  GetRecipeInfo = function(id)
+    if id == 101 then return { name = "Iron Buckler", learned = true, icon = 136241 } end
+  end,
+  GetRecipeSchematic = function(id)
+    if id == 101 then
+      return { outputItemID = 7069, reagentSlotSchematics = { { quantityRequired = 2, reagents = { { itemID = 2840 } } } } }
+    end
+  end,
+}
 function UnitLevel() return 80 end
 function IsPlayerAtEffectiveMaxLevel() return true end
 function UnitClass() return "Paladin", "PALADIN", 2 end
@@ -196,9 +255,11 @@ function UnitRace() return "Dwarf", "Dwarf", 3 end
 function UnitName() return "Norasonia" end
 C_PlayerInfo = {}
 
-local profs = { { "Blacksmithing", 85, 100, "Khaz Algar Blacksmithing" }, { "Mining", 100, 100, "Khaz Algar Mining" }, nil, nil, { "Cooking", 12, 100, "Khaz Algar Cooking" } }
-function GetProfessions() return 1, 2, nil, nil, 5 end
-function GetProfessionInfo(i) local p = profs[i]; return p[1], 0, p[2], p[3], 0, 0, 0, 0, 0, 0, p[4] end
+-- GetProfessions() reports nothing on current retail builds (confirmed live:
+-- a real character's own professions came back empty), so it's mocked that
+-- way too — the profession list has to come from GetBaseProfessionInfo
+-- instead (see C_TradeSkillUI above), the same place recipes come from.
+function GetProfessions() return nil, nil, nil, nil, nil end
 
 local rfac = {
   { name = "Khaz Algar", isHeader = true, isCollapsed = true, factionID = 0 },
@@ -302,6 +363,7 @@ def play_session(lua, logout=True):
     lua.globals().SetBankOpen(False)
     fire("BAG_UPDATE_DELAYED")        # bank closed: must not wipe saved bank
     fire("MAIL_INBOX_UPDATE")
+    fire("TRADE_SKILL_SHOW")
     if logout:
         fire("PLAYER_LOGOUT")
 

@@ -198,6 +198,16 @@ function DumpRows(scroll)
   end
   return table.concat(lines, "\n")
 end
+function FindRow(scroll, text)
+  local child = scroll._children[1]
+  for _, row in ipairs(child._children) do
+    if row._shown then
+      local parts = {}
+      visibleText(row, parts, 0)
+      if table.concat(parts, "  |  "):find(text, 1, true) then return row end
+    end
+  end
+end
 function StripCodes(s)
   return (s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("||", "|"))
 end
@@ -273,7 +283,7 @@ GRID_TABS = {"Gear", "Bags", "Bank"}
 chars = show("Characters", char_scroll)
 check("Brannoc Galeforge" in chars and "(you)" in chars, "both characters listed, current marked")
 
-for label in ["Overview", "Bags", "Bank", "Gear", "Reputation", "Currency"]:
+for label in ["Overview", "Bags", "Bank", "Gear", "Professions", "Reputation", "Currency"]:
     by_label[label].Click(by_label[label])
     scroll = grid_scroll if label in GRID_TABS else detail_scroll
     out = show(label, scroll)
@@ -286,10 +296,30 @@ check("Honor Points" in currency and "2,450" in currency and "4,000" in currency
 check("Darkmoon Prize Ticket" in currency, "currency nested two header levels deep (behind both Seasonal and Darkmoon Faire) is still found")
 check("Seasonal" not in currency and "Darkmoon Faire" not in currency, "collapsed currency headers themselves aren't listed as rows")
 
-by_label["Overview"].Click(by_label["Overview"])
+by_label["Professions"].Click(by_label["Professions"])
 prof_name = "Blacksmithing" if IS_RETAIL else "Leatherworking"
-check(prof_name in show("Overview (professions folded in)", detail_scroll),
-      "profession bars folded into overview")
+recipe_name = "Iron Buckler" if IS_RETAIL else "Light Armor Kit"
+reagent_name = "Khorium Ore" if IS_RETAIL else "Light Leather"
+professions = show("Professions (collapsed)", detail_scroll)
+check(prof_name in professions, "profession bar shown on its own tab")
+check(recipe_name not in professions, "its recipes start collapsed")
+
+prof_row = G.FindRow(detail_scroll, prof_name)
+prof_row.Click(prof_row)
+professions = show("Professions (profession expanded)", detail_scroll)
+check(recipe_name in professions, "clicking the profession reveals its recipes")
+check(reagent_name not in professions, "but not a recipe's reagents yet")
+
+recipe_row = G.FindRow(detail_scroll, recipe_name)
+recipe_row.Click(recipe_row)
+professions = show("Professions (recipe expanded)", detail_scroll)
+check(reagent_name in professions and "2x" in professions,
+      "clicking the recipe reveals its reagents, recorded from opening the profession window once")
+
+recipe_row = G.FindRow(detail_scroll, recipe_name)
+recipe_row.Click(recipe_row)
+professions = show("Professions (recipe collapsed again)", detail_scroll)
+check(reagent_name not in professions, "clicking it again collapses the reagents")
 
 by_label["Bags"].Click(by_label["Bags"])
 check("Hearthstone" in show("Bags (grid)", grid_scroll), "bag items shown as a grid")

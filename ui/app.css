@@ -313,12 +313,23 @@ h2.sec { font-family: var(--serif); font-weight: 560; font-size: 1.3rem; margin:
 h2.sec.rep-group { font-size: 1.1rem; margin: 28px 0 12px; color: var(--muted); }
 h2.sec.rep-group:first-child { margin-top: 0; }
 
-.profs { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px 28px; margin-bottom: 28px; }
+.prof { display: block; width: 100%; max-width: 760px; margin: 0 0 4px; padding: 8px 4px; background: none; border: 0; cursor: pointer; border-radius: 6px; }
+.prof:hover { background: var(--panel); }
 .prof .row { display: flex; justify-content: space-between; margin-bottom: 6px; }
 .prof .row span:last-child { color: var(--muted); }
 .prof.sec-skill .row span:first-child { color: var(--muted); }
 .meter { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
 .meter > i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+
+.recipes { display: grid; gap: 2px; max-width: 760px; margin: 0 0 24px; padding-left: 16px; }
+.recipe, .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 4px; line-height: 1.2; }
+.recipe-head { width: 100%; background: none; border: 0; cursor: pointer; text-align: left; border-radius: 4px; font: inherit; }
+.recipe-head:hover { background: var(--panel); }
+.recipe .nm, .recipe-head .nm { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recipe .note, .recipe-head .note { flex: none; margin: 0; text-align: right; color: var(--muted); }
+.recipe .ico, .recipe-head .ico { width: 20px; height: 20px; border-radius: 4px; }
+.recipe .gi, .recipe-head .gi { width: 14px; height: 14px; }
+.tw { display: inline-block; width: 1em; color: var(--muted); font-size: .8em; }
 
 .reps { display: grid; gap: 14px; max-width: 760px; }
 .rep .row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; }

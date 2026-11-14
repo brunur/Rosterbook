@@ -491,12 +491,12 @@ function selectCharacter(id, tab, highlight = null) {
 }
 
 // ---------- character detail ----------
-const TABS = [['overview', 'Overview'], ['bags', 'Bags'], ['bank', 'Bank'], ['gear', 'Gear'], ['rep', 'Reputation'], ['currency', 'Currency']];
+const TABS = [['overview', 'Overview'], ['bags', 'Bags'], ['bank', 'Bank'], ['gear', 'Gear'], ['professions', 'Professions'], ['rep', 'Reputation'], ['currency', 'Currency']];
 
 function renderCharacter(c) {
   const [used, total] = slotsUsed(c.bags);
   const bankItems = c.bank.reduce((n, b) => n + b.items.length, 0);
-  const counts = { bags: `${used}/${total}`, bank: c.bankVisited ? bankItems : '', rep: c.reputations.length, currency: c.currencies.length };
+  const counts = { bags: `${used}/${total}`, bank: c.bankVisited ? bankItems : '', professions: c.professions.length, rep: c.reputations.length, currency: c.currencies.length };
   const r = c.xp.rested;
 
   detail.style.setProperty('--cls', c.classColor);
@@ -532,6 +532,7 @@ function renderTab(c) {
       ? renderBags(c.bank)
       : `<p class="note">No bank saved for ${esc(c.firstName)} yet. Open the bank on this character once and it will appear here.</p>`;
     case 'gear': return renderGear(c);
+    case 'professions': return renderProfessions(c);
     case 'rep': return renderReps(c);
     case 'currency': return renderCurrencies(c);
     default: return renderOverview(c);
@@ -553,15 +554,47 @@ function renderOverview(c) {
       ? `${c.mailCount} waiting${c.mailExpires ? `, first expires in ${duration(c.mailExpires - Date.now() / 1000)}` : ''}`
       : 'None'],
   ].filter(([, v]) => v);
-  const profs = c.professions.length
-    ? `<div class="profs">${c.professions.map((p) => `
-        <div class="prof${p.secondary ? ' sec-skill' : ''}">
-          <div class="row"><span>${esc(p.name)}</span><span class="num">${p.rank} / ${p.max}</span></div>
-          <div class="meter"><i style="width:${p.max ? (p.rank / p.max) * 100 : 0}%"></i></div>
-        </div>`).join('')}</div>`
-    : '<p class="note">No professions learned yet.</p>';
-  return `<dl class="facts">${facts.map(([k, v]) => `<div class="fact"><dt>${esc(k)}</dt><dd class="num">${esc(v)}</dd></div>`).join('')}</dl>
-    <h2 class="sec">Professions</h2>${profs}`;
+  return `<dl class="facts">${facts.map(([k, v]) => `<div class="fact"><dt>${esc(k)}</dt><dd class="num">${esc(v)}</dd></div>`).join('')}</dl>`;
+}
+
+// Tree: profession -> (click) its recipes -> (click a recipe) its reagents.
+// Expand state is view state, not a setting: in memory only, per character +
+// profession/recipe, and resets on reload.
+const openProfessions = new Set();
+const openRecipes = new Set();
+
+function reagentRow(rg) {
+  return `<div class="recipe" style="--q:var(--q1)"><span class="nm">${icon({ id: rg.id, icon: rg.icon, classId: 18 })}${esc(rg.name)}</span><span class="note">${rg.count}x</span></div>`;
+}
+
+function recipeRow(c, r) {
+  const key = `${c.key}|${r.id}`;
+  const open = openRecipes.has(key);
+  const n = r.reagents.length;
+  return `
+    <button class="recipe-head" data-recipe="${esc(key)}" aria-expanded="${open}">
+      <span class="tw">${open ? '▾' : '▸'}</span><span class="nm">${icon({ id: r.output, icon: r.icon, classId: 18 })}${esc(r.name)}</span>
+      <span class="note">${n} reagent${n === 1 ? '' : 's'}</span>
+    </button>
+    ${open ? (n ? r.reagents.map(reagentRow).join('') : '<p class="note" style="padding-left:20px">No reagents.</p>') : ''}`;
+}
+
+function renderProfessions(c) {
+  if (!c.professions.length) return '<p class="note">No professions learned yet.</p>';
+  return c.professions.map((p) => {
+    const key = `${c.key}|${p.name}`;
+    const open = openProfessions.has(key);
+    const recipes = c.recipes.filter((r) => r.profession === p.name).sort((a, b) => a.name.localeCompare(b.name));
+    const body = !open ? '' : recipes.length
+      ? `<div class="recipes">${recipes.map((r) => recipeRow(c, r)).join('')}</div>`
+      : '<p class="note">Open this profession once to record its recipes.</p>';
+    return `
+      <button class="prof${p.secondary ? ' sec-skill' : ''}" data-prof="${esc(key)}" aria-expanded="${open}">
+        <div class="row"><span><span class="tw">${open ? '▾' : '▸'}</span>${esc(p.name)}</span><span class="num">${p.rank} / ${p.max}</span></div>
+        <div class="meter"><i style="width:${p.max ? (p.rank / p.max) * 100 : 0}%"></i></div>
+      </button>
+      ${body}`;
+  }).join('');
 }
 
 function renderBags(bags) {
@@ -661,6 +694,19 @@ detail.addEventListener('click', (e) => {
   const where = e.target.closest('.where-btn[data-id]');
   if (where) selectCharacter(where.dataset.id, where.dataset.tab, Number(where.dataset.item));
   if (e.target.closest('[data-open-setup]')) openSettings('games');
+  const prof = e.target.closest('[data-prof]');
+  if (prof) {
+    const key = prof.dataset.prof;
+    openProfessions.has(key) ? openProfessions.delete(key) : openProfessions.add(key);
+    render();
+    return;
+  }
+  const recipe = e.target.closest('[data-recipe]');
+  if (recipe) {
+    const key = recipe.dataset.recipe;
+    openRecipes.has(key) ? openRecipes.delete(key) : openRecipes.add(key);
+    render();
+  }
 });
 
 // ---------- item search ----------

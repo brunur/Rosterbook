@@ -37,6 +37,7 @@ local WARBAND_LAST = BagIndex.AccountBankTab_5
 
 local IS_RETAIL = WOW_PROJECT_ID and WOW_PROJECT_MAINLINE and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local GetItemInfoCompat = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+local GetItemIconCompat = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
 
 -- Retail names its bank tabs; returns { [bagId] = "Tab name" }.
 local function bankTabNames(bankType)
@@ -349,6 +350,97 @@ local function scanSkills()
   me.professions = profs
 end
 
+-- Every known recipe for whichever profession window is currently open,
+-- reagents included — captured the same way the bank is: there's no passive
+-- "list every recipe" API, only "list the recipes of the profession you have
+-- open right now". Open a trainer/profession window once per profession and
+-- this fills in; it never goes stale except by revisiting it.
+local function scanRecipes()
+  local recipes, profName
+
+  if GetNumTradeSkills then
+    -- Legacy trade skill window (classic-style clients, e.g. Forever).
+    profName = select(1, GetTradeSkillLine())
+    recipes = {}
+    withExpandedHeaders(
+      GetNumTradeSkills,
+      function(i) local n, t, _, e = GetTradeSkillInfo(i); return n, t == "header" or t == "subheader", e end,
+      ExpandTradeSkillSubClass, function() end, -- no legacy collapse API; leave categories expanded
+      function(i)
+        local name, skillType = GetTradeSkillInfo(i)
+        if skillType ~= "header" and skillType ~= "subheader" then
+          local outId = itemFromLink(GetTradeSkillRecipeLink(i))
+          local reagents = {}
+          for r = 1, (GetTradeSkillNumReagents(i) or 0) do
+            local reagentName, _, reagentCount = GetTradeSkillReagentInfo(i, r)
+            local rid = itemFromLink(GetTradeSkillReagentItemLink(i, r))
+            if rid then
+              reagents[#reagents + 1] = { id = rid, name = reagentName, count = reagentCount or 1,
+                                          icon = GetItemIconCompat and GetItemIconCompat(rid) }
+            end
+          end
+          recipes[#recipes + 1] = { id = outId or i, name = name, output = outId,
+                                    icon = outId and GetItemIconCompat and GetItemIconCompat(outId), reagents = reagents }
+        end
+      end)
+  elseif C_TradeSkillUI and C_TradeSkillUI.GetAllRecipeIDs then
+    -- Modern unified profession API (retail). GetProfessions() — used
+    -- elsewhere to list a character's professions without a window open —
+    -- has gone quiet on current retail builds, so this also reads the
+    -- profession's own name/rank/cap here and merges it into me.professions;
+    -- opening each profession once becomes the only way that data arrives,
+    -- same as recipes below it.
+    local okB, base = pcall(C_TradeSkillUI.GetBaseProfessionInfo)
+    profName = (okB and base and base.professionName) or nil
+    if profName then
+      local profs = {}
+      for _, p in ipairs(me.professions or {}) do if p.name ~= profName then profs[#profs + 1] = p end end
+      profs[#profs + 1] = {
+        name = profName, rank = base.skillLevel or 0, max = base.maxSkillLevel or 0,
+        kind = base.isPrimaryProfession and "primary" or "secondary",
+      }
+      me.professions = profs
+    end
+    recipes = {}
+    for _, id in ipairs(C_TradeSkillUI.GetAllRecipeIDs()) do
+      local ok1, info = pcall(C_TradeSkillUI.GetRecipeInfo, id)
+      if ok1 and info and info.learned then
+        local reagents = {}
+        local ok2, schem = pcall(C_TradeSkillUI.GetRecipeSchematic, id, false)
+        if ok2 and schem and schem.reagentSlotSchematics then
+          for _, slot in ipairs(schem.reagentSlotSchematics) do
+            local choice = slot.reagents and slot.reagents[1]
+            if choice and choice.itemID then
+              local rname = GetItemInfoCompat and select(1, GetItemInfoCompat(choice.itemID))
+              if not rname and C_Item and C_Item.RequestLoadItemDataByID then
+                -- Item data wasn't cached locally yet; ask for it and pick the
+                -- name up on the next scan (see GET_ITEM_INFO_RECEIVED below).
+                C_Item.RequestLoadItemDataByID(choice.itemID)
+              end
+              reagents[#reagents + 1] = { id = choice.itemID, name = rname, count = slot.quantityRequired or 1,
+                                          icon = GetItemIconCompat and GetItemIconCompat(choice.itemID) }
+            end
+          end
+        end
+        recipes[#recipes + 1] = { id = id, name = info.name, icon = info.icon,
+                                  output = ok2 and schem and schem.outputItemID or nil, reagents = reagents }
+      end
+    end
+  else
+    return
+  end
+
+  for _, r in ipairs(recipes) do r.profession = profName end
+  -- Keep whatever was recorded for other professions; replace this one.
+  local merged = {}
+  for _, r in ipairs(me.recipes or {}) do
+    if r.profession ~= profName then merged[#merged + 1] = r end
+  end
+  for _, r in ipairs(recipes) do merged[#merged + 1] = r end
+  me.recipes = merged
+  me.recipesScanned = time()
+end
+
 local function scanReputations()
   local getNum = GetNumFactions or (C_Reputation and C_Reputation.GetNumFactions)
   if not getNum then return end
@@ -498,6 +590,12 @@ handlers.ZONE_CHANGED_INDOORS = handlers.ZONE_CHANGED
 handlers.PLAYER_EQUIPMENT_CHANGED = function() soon("gear", scanEquipment) end
 handlers.SKILL_LINES_CHANGED = function() soon("skills", scanSkills) end
 handlers.UPDATE_FACTION = function() soon("reps", scanReputations) end
+handlers.TRADE_SKILL_SHOW = function() if me then soon("recipes", scanRecipes) end end
+handlers.TRADE_SKILL_LIST_UPDATE = handlers.TRADE_SKILL_SHOW
+-- Reagent item data a scan just asked for (see RequestLoadItemDataByID
+-- above) arrives async; pick the name up once it does. A no-op while no
+-- profession window is open, since the scan then simply finds nothing.
+handlers.GET_ITEM_INFO_RECEIVED = handlers.TRADE_SKILL_SHOW
 handlers.CURRENCY_DISPLAY_UPDATE = function() soon("currency", scanCurrencies) end
 handlers.MAIL_INBOX_UPDATE = function() soon("mail", scanMail) end
 handlers.BANKFRAME_OPENED = function() bankOpen = true; soon("bank", scanBank) end
