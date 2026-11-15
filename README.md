@@ -8,7 +8,7 @@ RosterBook has two parts:
 |---|---|---|
 | **Add-on** (`addon/Rosterbook`) | Records each character when you log out or `/reload`. Works on Retail and WoW Forever. | CurseForge, Wago, GitHub |
 | **In-game panel** (`addon/Rosterbook_UI`, optional) | A window in the game over the same data, for players without a second screen. Loads only when opened. | Ships in the same download as the add-on |
-| **Desktop app** (`app/`, `crates/`, `ui/`) | Reads what the add-on saved, shows it in a window, and shares it with devices on your home Wi-Fi. | GitHub Releases (private while testing) |
+| **Desktop app** (`app/`, `crates/`, `ui/`) | Reads what the add-on saved, shows it in a window, and shares it with devices on your home Wi-Fi. | GitHub Releases |
 
 Nothing is sent to the internet. The app runs a small web server on your own PC; phones and tablets on the same network connect to it after you approve them with a QR code.
 
@@ -125,31 +125,6 @@ The two add-on runs regenerate the fixtures the Rust tests read; CI fails if the
 
 ## Releasing
 
-### One-time setup
-
-The repository is **private**, and so are its releases: only you can see or download them.
-
-1. Replace `OWNER` with your GitHub name in `Cargo.toml` and `app/src-tauri/tauri.conf.json`.
-2. **Add-on sites** (only when you're ready to go public). Create the project on CurseForge and Wago, then add repository variables `CURSEFORGE_PROJECT_ID` and `WAGO_PROJECT_ID`, and secrets `CF_API_KEY` (CurseForge → API tokens) and `WAGO_API_TOKEN` (Wago → account → API keys). Until then the add-on workflow only makes a GitHub release.
-
-**Actions minutes.** Private repositories get a monthly allowance of Actions minutes on the free plan, and Windows and macOS builds cost more than Linux ones. CI on each push is Linux only and cheap; a full app release builds on all three systems, so check Settings → Billing after your first release to see how much one costs.
-
-### Turning on automatic updates (when going public)
-
-The app's updater downloads from GitHub without signing in, so it only works once releases are public. Until then it is off, and the tray menu says "Updates are off in this build". To turn it on:
-
-1. Generate a signing key; installed copies only accept updates signed with it:
-
-   ```sh
-   npx @tauri-apps/cli@2 signer generate -w ~/.tauri/alt-ledger.key
-   ```
-
-2. Paste the printed **public** key into `plugins.updater.pubkey` in `app/src-tauri/tauri.conf.json`.
-3. In the repo → Settings → Secrets and variables → Actions, add secrets `TAURI_SIGNING_PRIVATE_KEY` (the contents of `~/.tauri/alt-ledger.key`) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and the variable `UPDATES_ENABLED` = `true`.
-4. Back the key up somewhere safe. If you lose it, existing installs can never update again.
-
-Copies installed before this point don't have updates turned on, so testers need to install the first public version by hand once.
-
 ### Desktop app
 
 1. Bump `version` in the root `Cargo.toml`.
@@ -164,14 +139,6 @@ Copies installed before this point don't have updates turned on, so testers need
 3. The **Release add-on** workflow uploads it to CurseForge, Wago and GitHub.
 
 Before the first WoW Forever release, check that CurseForge and Wago list a game version for Forever (interface `16001`). The TOC declares both Retail and Forever.
-
-### Testing with friends
-
-Adding someone as a collaborator on a personal repository gives them the whole source code and push access, so don't do that just to share builds. Instead:
-
-1. Publish a release as above and mark it **pre-release**.
-2. Download the installers from it yourself and send each friend the one for their system (Windows `.exe`, macOS `.dmg`, Linux `.AppImage`/`.deb`/`.rpm`) by Discord, a shared drive, or similar.
-3. For each new test build, they install it over the old one. Settings and connected devices are kept.
 
 ### Code signing
 
