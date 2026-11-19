@@ -1070,6 +1070,95 @@ async function renderRealmStatus() {
     </div>`;
 }
 
+// ---------- profit ----------
+function openProfit() {
+  openSheet('Profit', '<p class="note">Loading…</p>');
+  renderProfit();
+}
+
+const PROFIT_SORTS = {
+  profit: (a, b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity),
+  roi: (a, b) => roi(b) - roi(a),
+  revenue: (a, b) => b.revenue - a.revenue,
+};
+function roi(r) {
+  // Return on cost; a free craft (no reagents priced in, cost 0) ranks as
+  // infinitely good rather than dividing by zero. A recipe with a missing
+  // reagent price has no cost/profit at all, so it sorts last.
+  if (r.profit == null) return -Infinity;
+  return r.cost > 0 ? r.profit / r.cost : Infinity;
+}
+
+async function renderProfit() {
+  const g = cur();
+  if (!g) {
+    sheetBody.innerHTML = '<p class="note">Add a game in Settings first.</p>';
+    return;
+  }
+  let rows;
+  try {
+    rows = await api('GET', `/api/profit/${encodeURIComponent(g.id)}`);
+  } catch (e) {
+    sheetBody.innerHTML = `<p class="note">${esc(e.message)}</p>`;
+    return;
+  }
+  if (!rows.length) {
+    sheetBody.innerHTML = `
+      <p class="note">No profitable crafts to show yet. This needs <a href="https://www.curseforge.com/wow/addons/auctionator" target="_blank" rel="noopener">Auctionator</a>
+      installed and scanned at least once on this account, and known recipes with reagents and output RosterBook has read.</p>`;
+    return;
+  }
+
+  const characters = [...new Set(rows.map((r) => r.character))].sort();
+  const state = { sort: 'profit', character: 'all', craftableOnly: false };
+
+  const draw = () => {
+    let shown = rows;
+    if (state.character !== 'all') shown = shown.filter((r) => r.character === state.character);
+    if (state.craftableOnly) shown = shown.filter((r) => r.craftable);
+    shown = [...shown].sort(PROFIT_SORTS[state.sort]);
+
+    const list = shown.slice(0, 200).map((r) => {
+      const hints = [r.character];
+      if (r.craftable) hints.push('have mats');
+      if (r.revenueSource === 'vendor') hints.push('vendor price');
+      if (r.missingReagents.length) hints.push(`missing: ${r.missingReagents.join(', ')}`);
+      return `
+      <li class="profit-row${r.cost == null ? ' incomplete' : ''}">
+        ${icon({ icon: r.icon, quality: 1 })}
+        <span class="who"><b>${esc(r.recipeName)}</b><span class="hint">${hints.map(esc).join(' · ')}</span></span>
+        <span class="amt">${r.cost == null ? '—' : coins(r.cost)}</span>
+        <span class="amt">${coins(r.revenue)}</span>
+        <span class="amt profit ${r.profit == null ? '' : r.profit >= 0 ? 'ok' : 'bad'}">${r.profit == null ? '—' : `${coins(Math.abs(r.profit))}${r.profit < 0 ? ' loss' : ''}`}</span>
+      </li>`;
+    }).join('');
+
+    sheetBody.innerHTML = `
+      <div class="group">
+        <p class="hint">Ranked by profit after the 5% auction house cut, using the latest Auctionator scan (or a vendor sell price when there's no AH data). A recipe only shows up once its output has a known price; a recipe missing a reagent's price still shows up but without a cost or profit.</p>
+        <div class="profit-controls">
+          <label>Sort <select id="profit-sort">
+            <option value="profit"${state.sort === 'profit' ? ' selected' : ''}>Profit</option>
+            <option value="roi"${state.sort === 'roi' ? ' selected' : ''}>ROI</option>
+            <option value="revenue"${state.sort === 'revenue' ? ' selected' : ''}>Sells for</option>
+          </select></label>
+          <label>Character <select id="profit-character">
+            <option value="all"${state.character === 'all' ? ' selected' : ''}>All</option>
+            ${characters.map((c) => `<option value="${esc(c)}"${state.character === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+          </select></label>
+          <label class="checkbox"><input type="checkbox" id="profit-craftable"${state.craftableOnly ? ' checked' : ''}> Craftable now</label>
+        </div>
+        <div class="profit-head"><span></span><span>Recipe</span><span>Cost</span><span>Sells for</span><span>Profit</span></div>
+        <ul class="profit-list">${list.length ? list : '<p class="note">Nothing matches these filters.</p>'}</ul>
+      </div>`;
+
+    $('#profit-sort').addEventListener('change', (e) => { state.sort = e.target.value; draw(); });
+    $('#profit-character').addEventListener('change', (e) => { state.character = e.target.value; draw(); });
+    $('#profit-craftable').addEventListener('change', (e) => { state.craftableOnly = e.target.checked; draw(); });
+  };
+  draw();
+}
+
 sheetBody.addEventListener('click', async (e) => {
   const t = e.target.closest('button');
   if (!t) return;
@@ -1207,6 +1296,7 @@ $('#connect-btn').addEventListener('click', openConnect);
 $('#settings-btn').addEventListener('click', () => openSettings(state.session?.role === 'owner' ? 'games' : 'appearance'));
 $('#queue-btn').addEventListener('click', openQueue);
 $('#realm-status-btn').addEventListener('click', openRealmStatus);
+$('#profit-btn').addEventListener('click', openProfit);
 
 // ---------- data + live updates ----------
 const statusEl = $('#status');
@@ -1226,6 +1316,7 @@ async function fetchSession() {
   $('#connect-btn').hidden = !owner;
   $('#settings-btn').hidden = state.session.role === 'unpaired';
   $('#realm-status-btn').hidden = state.session.role === 'unpaired';
+  $('#profit-btn').hidden = state.session.role === 'unpaired';
   $('.search').hidden = state.session.role === 'unpaired';
 }
 

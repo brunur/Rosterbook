@@ -192,6 +192,9 @@ pub struct Recipe {
     pub output: Option<i64>,
     pub icon: Option<u32>,
     pub reagents: Vec<Reagent>,
+    /// What a vendor pays for one output item, in copper — a floor price
+    /// when there's no (or no better) auction house data for it.
+    pub vendor_price: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -442,6 +445,9 @@ fn recipe(v: &Value) -> Recipe {
         output: int(v, "output"),
         icon: int(v, "icon").map(|i| i as u32),
         reagents: list(v.get("reagents").unwrap_or(&Value::Null)).into_iter().map(reagent).collect(),
+        // A 0 sell price means the item isn't vendor-sellable at all, not
+        // that it's worth nothing — treat the same as not having one.
+        vendor_price: int(v, "vendorPrice").filter(|p| *p > 0),
     }
 }
 

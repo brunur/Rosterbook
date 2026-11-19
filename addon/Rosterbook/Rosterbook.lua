@@ -380,7 +380,8 @@ local function scanRecipes()
             end
           end
           recipes[#recipes + 1] = { id = outId or i, name = name, output = outId,
-                                    icon = outId and GetItemIconCompat and GetItemIconCompat(outId), reagents = reagents }
+                                    icon = outId and GetItemIconCompat and GetItemIconCompat(outId), reagents = reagents,
+                                    vendorPrice = outId and GetItemInfoCompat and select(11, GetItemInfoCompat(outId)) }
         end
       end)
   elseif C_TradeSkillUI and C_TradeSkillUI.GetAllRecipeIDs then
@@ -422,8 +423,9 @@ local function scanRecipes()
             end
           end
         end
-        recipes[#recipes + 1] = { id = id, name = info.name, icon = info.icon,
-                                  output = ok2 and schem and schem.outputItemID or nil, reagents = reagents }
+        local outId = ok2 and schem and schem.outputItemID or nil
+        recipes[#recipes + 1] = { id = id, name = info.name, icon = info.icon, output = outId, reagents = reagents,
+                                  vendorPrice = outId and GetItemInfoCompat and select(11, GetItemInfoCompat(outId)) }
       end
     end
   else

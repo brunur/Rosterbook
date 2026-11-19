@@ -77,6 +77,11 @@ Fonts.row:CopyFontObject(GameFontHighlightSmall)
 Fonts.header:CopyFontObject(GameFontNormal)
 Fonts.title:CopyFontObject(GameFontNormalLarge)
 
+-- Right-edge x offsets (from the row's own right edge) for the character
+-- list's RXP and Gold columns, shared by the rows and their header labels
+-- so the two line up regardless of either column's text width.
+local GOLD_COL_X, RXP_COL_X = -4, -56
+
 -- Row geometry follows the text size (these are the sizes at 10pt).
 local Metrics = {}
 local function applyFonts(size, fontPath)
@@ -122,12 +127,19 @@ local function money(copper)
   return ("%dg %ds %dc"):format(copper / 10000, (copper / 100) % 100, copper % 100)
 end
 
--- Short gold only ("12,345g") for the narrow character list.
+-- Short money for the narrow character list: gold when there's at least
+-- one, else silver, else copper — so a character under 1g doesn't just
+-- read "0g" (the full money() breakdown is still shown once selected).
 local function commas(n)
   return tostring(math.floor(n or 0)):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
 end
 local function goldShort(copper)
-  return commas(math.floor((copper or 0) / 10000)) .. "|cffffd700g|r"
+  copper = math.floor(copper or 0)
+  local gold = math.floor(copper / 10000)
+  if gold > 0 then return commas(gold) .. "|cffffd700g|r" end
+  local silver = math.floor(copper / 100)
+  if silver > 0 then return silver .. "|cffc7c7cfs|r" end
+  return copper .. "|cffeda55fc|r"
 end
 
 local function duration(seconds)
@@ -187,6 +199,14 @@ local function hasRestBonus(c)
 end
 
 local function hasMail(c) return c.mail and (c.mail.count or 0) > 0 end
+
+-- Rested XP as a percentage of the XP needed for the next level (what the
+-- in-game rested bar itself measures against) — "—" when there's no rest
+-- bonus (including a max-level or XP-disabled character).
+local function restPctText(c)
+  if not hasRestBonus(c) then return "—" end
+  return math.floor(c.restXP / c.xpMax * 100 + 0.5) .. "%"
+end
 
 -- Used/total bag slots across every carried bag (for the Bags tab label).
 local function bagUsedTotal(c)
@@ -348,6 +368,9 @@ local function rowList(parent, rowWidth)
     row.rightBottom = row:CreateFontString(nil, "OVERLAY")
     row.rightBottom:SetFontObject(Fonts.row)
     row.rightBottom:SetJustifyH("RIGHT")
+    row.rxp = row:CreateFontString(nil, "OVERLAY")
+    row.rxp:SetFontObject(Fonts.row)
+    row.rxp:SetJustifyH("RIGHT")
 
     row.restIcon = row:CreateTexture(nil, "OVERLAY")
     row.restIcon:SetSize(14, 14)
@@ -413,9 +436,13 @@ local function rowList(parent, rowWidth)
       row.icon:ClearAllPoints()
       row.subtitle:ClearAllPoints()
       row.rightBottom:ClearAllPoints()
+      row.rxp:ClearAllPoints()
 
       if kind == "character" then
-        -- Two-line card: name + class/race on top, level and gold stacked right.
+        -- Two-line card: name + class/race on top, level and RXP/gold columns
+        -- stacked right. RXP and Gold each anchor their own right edge at a
+        -- fixed offset (not to each other) so the two columns stay aligned
+        -- down the list regardless of how wide either value's text is.
         row.icon:Hide()
         row.text:SetPoint("TOPLEFT", indent, -4)
         row.text:SetPoint("RIGHT", row, "RIGHT", -62, 0)
@@ -425,12 +452,17 @@ local function rowList(parent, rowWidth)
         row.subtitle:Show()
         row.right:ClearAllPoints()
         row.right:SetPoint("TOPRIGHT", -4, -4)
-        row.rightBottom:SetPoint("BOTTOMRIGHT", -4, 4)
+        row.rightBottom:SetPoint("BOTTOMRIGHT", GOLD_COL_X, 4)
         row.rightBottom:SetText(spec.rightBottom or "")
         row.rightBottom:Show()
+        row.rxp:SetPoint("BOTTOMRIGHT", RXP_COL_X, 4)
+        row.rxp:SetText(spec.rxp or "")
+        row.rxp:SetTextColor(0.55, 0.75, 1)
+        row.rxp:Show()
       else
         row.subtitle:Hide()
         row.rightBottom:Hide()
+        row.rxp:Hide()
         if spec.icon then
           row.icon:SetTexture(spec.icon)
           if spec.iconCoords then row.icon:SetTexCoord(unpack(spec.iconCoords))
@@ -1053,7 +1085,7 @@ function Panel.Refresh(keepScroll)
     specs[#specs + 1] = {
       kind = "character", text = c.name .. (isMe and GREY .. " (you)|r" or ""), r = r, g = g, b = b,
       subtitle = GREY .. (c.race or "") .. " " .. (c.class or "") .. "|r",
-      right = WHITE .. (c.level or "?") .. "|r", rightBottom = goldShort(c.money),
+      right = WHITE .. (c.level or "?") .. "|r", rightBottom = goldShort(c.money), rxp = restPctText(c),
       selected = c.guid == selected, barColor = { r, g, b },
       rested = hasRestBonus(c), mail = hasMail(c),
       onClick = function()
@@ -1636,10 +1668,26 @@ local function build()
   rescan:SetPoint("LEFT", sortButton, "RIGHT", 6, 0)
 
   charList = rowList(frame, LIST_W - 24)
-  charList.scroll:SetPoint("TOPLEFT", sortButton, "BOTTOMLEFT", 4, -8)
+  charList.scroll:SetPoint("TOPLEFT", sortButton, "BOTTOMLEFT", 4, -22)
   charList.scroll:SetPoint("BOTTOMLEFT", 14, 12)
   charList.scroll:SetWidth(LIST_W - 24)
   if EUI_Skin and charList.scroll.ScrollBar then EUI_Skin.ScrollBar(charList.scroll.ScrollBar) end
+
+  -- Column headers for the RXP/Gold columns each row's bottom line shows,
+  -- anchored at the same fixed x offsets as the row columns themselves.
+  local rxpHeader = frame:CreateFontString(nil, "OVERLAY")
+  rxpHeader:SetFontObject(Fonts.row)
+  rxpHeader:SetJustifyH("RIGHT")
+  rxpHeader:SetTextColor(0.6, 0.64, 0.72)
+  rxpHeader:SetText("RXP")
+  rxpHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", RXP_COL_X, 4)
+
+  local goldHeader = frame:CreateFontString(nil, "OVERLAY")
+  goldHeader:SetFontObject(Fonts.row)
+  goldHeader:SetJustifyH("RIGHT")
+  goldHeader:SetTextColor(0.6, 0.64, 0.72)
+  goldHeader:SetText("Gold")
+  goldHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", GOLD_COL_X, 4)
 
   local divider = frame:CreateTexture(nil, "ARTWORK")
   divider:SetColorTexture(THEME.border[1], THEME.border[2], THEME.border[3], 1)

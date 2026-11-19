@@ -37,7 +37,10 @@ impl Source {
 /// Reads the given add-on's price tables, keyed by realm name (an account's
 /// SavedVariables cover every realm it has played on).
 pub fn load_all(saved_variables_dir: &std::path::Path, source: Source) -> std::collections::HashMap<String, PriceTable> {
-    let Ok(src) = std::fs::read_to_string(saved_variables_dir.join(source.data_file())) else {
+    // Read as bytes, not a `String`: these files can hold binary data (an
+    // unescaped CBOR blob) inside an otherwise-text Lua literal, so the file
+    // as a whole isn't reliably valid UTF-8.
+    let Ok(src) = std::fs::read(saved_variables_dir.join(source.data_file())) else {
         return std::collections::HashMap::new();
     };
     match source {

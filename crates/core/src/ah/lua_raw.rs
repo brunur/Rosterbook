@@ -52,30 +52,28 @@ impl RawValue {
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn get(&self, key: &str) -> Option<&RawValue> {
         self.as_table()?.iter().find_map(|(k, v)| matches!(k, Key::Str(s) if s == key).then_some(v))
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             RawValue::Bytes(b) => Some(b),
             _ => None,
         }
     }
-
-    pub fn as_int(&self) -> Option<i64> {
-        match self {
-            RawValue::Int(i) => Some(*i),
-            _ => None,
-        }
-    }
 }
 
-/// Parses a whole SavedVariables file into `{ VariableName: value }`.
-pub fn parse_saved_variables(src: &str) -> Result<Vec<(String, RawValue)>> {
-    let src = src.strip_prefix('\u{feff}').unwrap_or(src);
-    let mut p = Parser { s: src.as_bytes(), pos: 0, depth: 0 };
+/// Parses a whole SavedVariables file into `{ VariableName: value }`. Takes
+/// raw bytes, not `&str`: some add-ons (Auctionator's price database) write
+/// arbitrary binary straight into quoted Lua strings without escaping it, so
+/// the file as a whole usually isn't valid UTF-8 even though every *other*
+/// value in it is plain text.
+pub fn parse_saved_variables(src: &[u8]) -> Result<Vec<(String, RawValue)>> {
+    const BOM: &[u8] = "\u{feff}".as_bytes();
+    let src = src.strip_prefix(BOM).unwrap_or(src);
+    let mut p = Parser { s: src, pos: 0, depth: 0 };
     let mut vars = Vec::new();
     p.skip();
     while !p.eof() {
@@ -414,7 +412,7 @@ mod tests {
 
     #[test]
     fn preserves_raw_bytes_in_strings() {
-        let vars = parse_saved_variables("A = { x = \"\\001\\002\\255\" }").unwrap();
+        let vars = parse_saved_variables(b"A = { x = \"\\001\\002\\255\" }").unwrap();
         let a = vars.iter().find(|(n, _)| n == "A").unwrap();
         let x = a.1.get("x").unwrap();
         assert_eq!(x.as_bytes().unwrap(), &[1, 2, 255]);
@@ -422,7 +420,7 @@ mod tests {
 
     #[test]
     fn reads_nested_tables_and_ints() {
-        let vars = parse_saved_variables(r#"DB = { ["realm"] = { ["123"] = "blob", __dbversion = 8 } }"#).unwrap();
+        let vars = parse_saved_variables(br#"DB = { ["realm"] = { ["123"] = "blob", __dbversion = 8 } }"#).unwrap();
         let db = &vars[0].1;
         let realm = db.get("realm").unwrap();
         assert_eq!(realm.get("123").unwrap().as_bytes().unwrap(), b"blob");
