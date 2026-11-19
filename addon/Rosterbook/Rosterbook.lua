@@ -443,6 +443,26 @@ local function scanRecipes()
   me.recipesScanned = time()
 end
 
+-- Vendor sell price only comes back from GetItemInfo once the client has
+-- that item cached — normally only after seeing it on a vendor or in
+-- tooltip text. Rather than making the player visit every vendor, ask the
+-- client to load each known recipe's output item; GET_ITEM_INFO_RECEIVED
+-- picks the price up once it arrives. Safe to call often: items already
+-- priced or already requested cost nothing.
+local function primeVendorPrices()
+  if not me or not me.recipes then return end
+  for _, r in ipairs(me.recipes) do
+    if r.output and not r.vendorPrice then
+      local sell = GetItemInfoCompat and select(11, GetItemInfoCompat(r.output))
+      if sell and sell > 0 then
+        r.vendorPrice = sell
+      elseif C_Item and C_Item.RequestLoadItemDataByID then
+        C_Item.RequestLoadItemDataByID(r.output)
+      end
+    end
+  end
+end
+
 local function scanReputations()
   local getNum = GetNumFactions or (C_Reputation and C_Reputation.GetNumFactions)
   if not getNum then return end
@@ -556,7 +576,7 @@ if not IS_RETAIL and ChatFrame_DisplayTimePlayed then
 end
 
 local function scanAll()
-  scanBasics(); scanMoney(); scanXP(); scanLocation()
+  scanBasics(); scanMoney(); scanXP(); scanLocation(); primeVendorPrices()
   scanBags(); scanEquipment(); scanSkills(); scanReputations(); scanCurrencies()
 end
 
@@ -595,9 +615,13 @@ handlers.UPDATE_FACTION = function() soon("reps", scanReputations) end
 handlers.TRADE_SKILL_SHOW = function() if me then soon("recipes", scanRecipes) end end
 handlers.TRADE_SKILL_LIST_UPDATE = handlers.TRADE_SKILL_SHOW
 -- Reagent item data a scan just asked for (see RequestLoadItemDataByID
--- above) arrives async; pick the name up once it does. A no-op while no
--- profession window is open, since the scan then simply finds nothing.
-handlers.GET_ITEM_INFO_RECEIVED = handlers.TRADE_SKILL_SHOW
+-- above) arrives async; pick the name up once it does. The TRADE_SKILL_SHOW
+-- half is a no-op while no profession window is open, since that scan then
+-- simply finds nothing; primeVendorPrices works either way.
+handlers.GET_ITEM_INFO_RECEIVED = function(...)
+  if me then primeVendorPrices() end
+  handlers.TRADE_SKILL_SHOW(...)
+end
 handlers.CURRENCY_DISPLAY_UPDATE = function() soon("currency", scanCurrencies) end
 handlers.MAIL_INBOX_UPDATE = function() soon("mail", scanMail) end
 handlers.BANKFRAME_OPENED = function() bankOpen = true; soon("bank", scanBank) end
