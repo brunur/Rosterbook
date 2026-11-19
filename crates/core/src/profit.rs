@@ -24,6 +24,7 @@ pub struct CraftSuggestion {
     pub recipe_name: String,
     pub output_item: i64,
     pub icon: Option<u32>,
+    pub profession: Option<String>,
     /// Total reagent cost, in copper — `None` when one or more reagents
     /// have no known price (see `missing_reagents`).
     pub cost: Option<i64>,
@@ -31,6 +32,9 @@ pub struct CraftSuggestion {
     /// vendor sell price when there's no AH data for this item.
     pub revenue: i64,
     pub revenue_source: &'static str,
+    /// What a vendor pays for the output item, in copper — shown
+    /// alongside AH revenue regardless of which one `revenue` used.
+    pub vendor_sell: Option<i64>,
     /// `None` exactly when `cost` is `None`.
     pub profit: Option<i64>,
     /// True when this character already holds every reagent, in bags or
@@ -96,9 +100,11 @@ pub fn rank_recipes(game: &GameData, prices_by_realm: &HashMap<String, PriceTabl
                 recipe_name: recipe.name.clone(),
                 output_item: output,
                 icon: recipe.icon,
+                profession: recipe.profession.clone(),
                 cost,
                 revenue,
                 revenue_source,
+                vendor_sell: recipe.vendor_price,
                 profit: cost.map(|c| revenue - c),
                 craftable,
                 missing_reagents,

@@ -1080,6 +1080,7 @@ const PROFIT_SORTS = {
   profit: (a, b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity),
   roi: (a, b) => roi(b) - roi(a),
   revenue: (a, b) => b.revenue - a.revenue,
+  profession: (a, b) => (a.profession ?? '').localeCompare(b.profession ?? '') || (b.profit ?? -Infinity) - (a.profit ?? -Infinity),
 };
 function roi(r) {
   // Return on cost; a free craft (no reagents priced in, cost 0) ranks as
@@ -1129,6 +1130,7 @@ async function renderProfit() {
         <span class="who"><b>${esc(r.recipeName)}</b><span class="hint">${hints.map(esc).join(' · ')}</span></span>
         <span class="amt">${r.cost == null ? '—' : coins(r.cost)}</span>
         <span class="amt">${coins(r.revenue)}</span>
+        <span class="amt">${r.vendorSell == null ? '—' : coins(r.vendorSell)}</span>
         <span class="amt profit ${r.profit == null ? '' : r.profit >= 0 ? 'ok' : 'bad'}">${r.profit == null ? '—' : `${coins(Math.abs(r.profit))}${r.profit < 0 ? ' loss' : ''}`}</span>
       </li>`;
     }).join('');
@@ -1141,6 +1143,7 @@ async function renderProfit() {
             <option value="profit"${state.sort === 'profit' ? ' selected' : ''}>Profit</option>
             <option value="roi"${state.sort === 'roi' ? ' selected' : ''}>ROI</option>
             <option value="revenue"${state.sort === 'revenue' ? ' selected' : ''}>Sells for</option>
+            <option value="profession"${state.sort === 'profession' ? ' selected' : ''}>Profession</option>
           </select></label>
           <label>Character <select id="profit-character">
             <option value="all"${state.character === 'all' ? ' selected' : ''}>All</option>
@@ -1148,7 +1151,7 @@ async function renderProfit() {
           </select></label>
           <label class="checkbox"><input type="checkbox" id="profit-craftable"${state.craftableOnly ? ' checked' : ''}> Craftable now</label>
         </div>
-        <div class="profit-head"><span></span><span>Recipe</span><span>Cost</span><span>Sells for</span><span>Profit</span></div>
+        <div class="profit-head"><span></span><span>Recipe</span><span>Cost</span><span>Sells for AH</span><span>Sells for Vendor</span><span>Profit</span></div>
         <ul class="profit-list">${list.length ? list : '<p class="note">Nothing matches these filters.</p>'}</ul>
       </div>`;
 
