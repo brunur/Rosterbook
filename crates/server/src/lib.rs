@@ -24,7 +24,7 @@ mod queue;
 mod realm_status;
 mod watch;
 
-use alt_ledger_core::{addon, detect, model, settings::{Device, GameConfig, ViewPrefs}, GameData, Settings};
+use alt_ledger_core::{addon, ah, detect, model, profit, settings::{Device, GameConfig, ViewPrefs}, GameData, Settings};
 use axum::{
     body::Body,
     extract::{ConnectInfo, Path as UrlPath, Query, Request, State},
@@ -697,6 +697,32 @@ async fn put_icons(State(s): State<AppState>, Extension(role): Extension<Role>, 
     StatusCode::NO_CONTENT.into_response()
 }
 
+/// Known recipes ranked by AH profit, for one game. Reads whichever
+/// supported price add-on has data in that account's SavedVariables; an
+/// account with none shows an empty list rather than an error.
+async fn get_profit(State(s): State<AppState>, Extension(role): Extension<Role>, UrlPath(game): UrlPath<String>) -> Response {
+    if let Err(r) = need_view(&role) {
+        return r;
+    }
+    let Some(sv_dir) = s.settings.read().await.games.iter().find(|g| g.id == game).map(|g| g.saved_variables_dir.clone()) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let Some(data) = s.games.read().await.get(&game).cloned() else {
+        return Json(json!([])).into_response();
+    };
+    let prices_by_realm = tokio::task::spawn_blocking(move || {
+        ah::Source::ALL.iter().fold(std::collections::HashMap::new(), |mut acc, source| {
+            for (realm, table) in ah::load_all(&sv_dir, *source) {
+                acc.entry(realm).or_insert_with(std::collections::HashMap::new).extend(table);
+            }
+            acc
+        })
+    })
+    .await
+    .unwrap_or_default();
+    Json(profit::rank_recipes(&data, &prices_by_realm)).into_response()
+}
+
 /// A cached item picture. Paths come only from the cache, never from the request.
 async fn icon(State(s): State<AppState>, Extension(role): Extension<Role>, UrlPath((game, id)): UrlPath<(String, u32)>) -> Response {
     if let Err(r) = need_view(&role) {
@@ -961,6 +987,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/setup/icons", put(put_icons))
         .route("/api/setup/suggestions/{id}/{answer}", post(answer_suggestion))
         .route("/api/icon/{game}/{id}", get(icon))
+        .route("/api/profit/{game}", get(get_profit))
         .route("/api/setup/faction-names", put(put_faction_names))
         .route("/api/pair", post(start_pairing))
         .route("/api/devices", get(list_devices))

@@ -2,9 +2,11 @@
 //! settings, game detection and add-on installation. No network code here.
 
 pub mod addon;
+pub mod ah;
 pub mod detect;
 pub mod lua;
 pub mod model;
+pub mod profit;
 pub mod settings;
 
 pub use model::{load_game_data, GameData};

@@ -2,6 +2,7 @@
 //! accounts, including installs inside Wine/Proton prefixes on Linux.
 
 use crate::addon;
+use crate::ah;
 use crate::model::DATA_FILE;
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -42,6 +43,15 @@ pub struct Account {
     pub last_saved: Option<i64>,
     /// Stable ID used for this game in settings.
     pub game_id: String,
+    /// AH add-ons with data in this account's SavedVariables folder.
+    pub ah_sources: Vec<AhSource>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AhSource {
+    pub id: String,
+    pub last_saved: Option<i64>,
 }
 
 /// Human name for a flavor folder.
@@ -192,17 +202,28 @@ pub fn inspect(root: &Path) -> Install {
                 .map(|e| {
                     let sv = e.path().join("SavedVariables");
                     let data = sv.join(DATA_FILE);
-                    let last_saved = std::fs::metadata(&data)
-                        .and_then(|m| m.modified())
-                        .ok()
-                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map(|d| d.as_secs() as i64);
+                    let mtime = |p: &Path| {
+                        std::fs::metadata(p)
+                            .and_then(|m| m.modified())
+                            .ok()
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map(|d| d.as_secs() as i64)
+                    };
+                    let last_saved = mtime(&data);
+                    let ah_sources = ah::Source::ALL
+                        .iter()
+                        .filter_map(|s| {
+                            let p = sv.join(s.data_file());
+                            p.is_file().then(|| AhSource { id: s.id().to_string(), last_saved: mtime(&p) })
+                        })
+                        .collect();
                     Account {
                         name: e.file_name().to_string_lossy().to_string(),
                         game_id: game_id(&sv),
                         has_data: data.is_file(),
                         last_saved,
                         saved_variables_dir: sv,
+                        ah_sources,
                     }
                 })
                 .collect();
