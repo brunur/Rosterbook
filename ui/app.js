@@ -59,14 +59,28 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-function coins(copper) {
+function coinParts(copper) {
   copper = Math.max(0, Math.floor(copper || 0));
-  const g = Math.floor(copper / 10000), s = Math.floor((copper % 10000) / 100), c = copper % 100;
+  return { g: Math.floor(copper / 10000), s: Math.floor((copper % 10000) / 100), c: copper % 100 };
+}
+
+function coins(copper) {
+  const { g, s, c } = coinParts(copper);
   const parts = [];
   if (g) parts.push(`<span class="coin g">${fmt(g)}<i></i></span>`);
   if (g || s) parts.push(`<span class="coin s">${s}<i></i></span>`);
   parts.push(`<span class="coin c">${c}<i></i></span>`);
   return `<span class="coins num" aria-label="${g} gold ${s} silver ${c} copper">${parts.join('')}</span>`;
+}
+
+/** Plain-text money, for contexts (like a `title` tooltip) that can't hold markup. */
+function coinsText(copper) {
+  const { g, s, c } = coinParts(copper);
+  const parts = [];
+  if (g) parts.push(`${fmt(g)}g`);
+  if (g || s) parts.push(`${s}s`);
+  parts.push(`${c}c`);
+  return parts.join(' ');
 }
 
 function duration(sec) {
@@ -96,14 +110,17 @@ function xpBar(c, big = false) {
   </div>`;
 }
 
-function icon(item, count = 0) {
+function icon(item, count = 0, opp = null) {
   // The game's own picture when "item pictures from my WoW install" is on and
   // this one has been read; RosterBook's drawing otherwise (and if it fails to load).
   const g = cur();
   const pic = item.icon && g?.iconSet?.has(item.icon)
     ? `<img class="gp" src="/api/icon/${encodeURIComponent(g.id)}/${item.icon}" alt="" loading="lazy" decoding="async">`
     : '';
-  return `<span class="ico${pic ? ' has-pic' : ''}" style="--q:var(--q${item.quality ?? 1})">${pic}${glyphSvg(item)}${count > 1 ? `<span class="c num">${fmt(count)}</span>` : ''}</span>`;
+  const pct = opp?.priceTrend?.pctVsAverage;
+  const oppCls = pct > 5 ? ' ok' : pct < -5 ? ' bad' : '';
+  const oppBadge = opp ? `<span class="opp${oppCls}">$</span>` : '';
+  return `<span class="ico${pic ? ' has-pic' : ''}" style="--q:var(--q${item.quality ?? 1})">${pic}${glyphSvg(item)}${oppBadge}${count > 1 ? `<span class="c num">${fmt(count)}</span>` : ''}</span>`;
 }
 
 // A picture that can't load falls back to the drawing (no inline handlers: CSP).
@@ -141,13 +158,14 @@ function viewOf(g) {
   return g.view;
 }
 
-let saveTimer;
+const saveTimers = new Map();
 function saveView(g) {
-  clearTimeout(saveTimer);
+  clearTimeout(saveTimers.get(g.id));
   const view = JSON.parse(JSON.stringify(viewOf(g)));
-  saveTimer = setTimeout(() => {
+  saveTimers.set(g.id, setTimeout(() => {
+    saveTimers.delete(g.id);
     api('PUT', `/api/view/${encodeURIComponent(g.id)}`, view).catch((e) => toast(e.message));
-  }, 250);
+  }, 250));
 }
 
 const FILTER_DIMS = [
@@ -370,6 +388,7 @@ roster.addEventListener('click', (e) => {
     save('game', state.game);
     render();
     detail.scrollTop = 0;
+    loadOpportunities().then(render).catch(() => {});
   } else if (t.dataset.panel) {
     state.panel = state.panel === t.dataset.panel ? null : t.dataset.panel;
     if (state.panel !== 'sort') state.arranging = false;
@@ -527,9 +546,9 @@ function renderCharacter(c) {
 
 function renderTab(c) {
   switch (state.tab) {
-    case 'bags': return renderBags(c.bags);
+    case 'bags': return renderBags(c.bags, c);
     case 'bank': return c.bankVisited
-      ? renderBags(c.bank)
+      ? renderBags(c.bank, c)
       : `<p class="note">No bank saved for ${esc(c.firstName)} yet. Open the bank on this character once and it will appear here.</p>`;
     case 'gear': return renderGear(c);
     case 'professions': return renderProfessions(c);
@@ -597,7 +616,7 @@ function renderProfessions(c) {
   }).join('');
 }
 
-function renderBags(bags) {
+function renderBags(bags, c) {
   if (!bags.length) return '<p class="note">Nothing saved here yet.</p>';
   return bags.map((b) => {
     const bySlot = new Map(b.items.map((i) => [i.slot, i]));
@@ -607,8 +626,10 @@ function renderBags(bags) {
       const it = bySlot.get(s);
       if (!it) { cells.push('<div class="slot free" aria-label="Empty slot"></div>'); continue; }
       const hit = state.highlight && it.id === state.highlight;
-      cells.push(`<div class="slot${hit ? ' hit' : ''}" style="--q:var(--q${it.quality ?? 1})" title="${esc(it.name)}${it.count > 1 ? ` x${it.count}` : ''}">
-        ${icon(it, it.count)}<span class="n">${esc(it.name)}</span></div>`);
+      const r = c && state.opp?.byKey.get(`${c.name}\0${c.realm}\0${it.id}`);
+      const title = `${esc(it.name)}${it.count > 1 ? ` x${it.count}` : ''}${r ? `\n${esc(oppSummary(r))}` : ''}`;
+      cells.push(`<div class="slot${hit ? ' hit' : ''}" style="--q:var(--q${it.quality ?? 1})" title="${title}">
+        ${icon(it, it.count, r)}<span class="n">${esc(it.name)}</span></div>`);
     }
     return `<div class="bag"><div class="bag-head"><h3>${esc(b.name)}</h3><span class="num">${b.size - b.free} / ${b.size}</span></div>
       <div class="slots">${cells.join('')}</div></div>`;
@@ -683,6 +704,7 @@ detail.addEventListener('click', (e) => {
     save('game', state.game);
     render();
     detail.scrollTop = 0;
+    loadOpportunities().then(render).catch(() => {});
     return;
   }
   const suggest = e.target.closest('[data-suggest]');
@@ -1162,6 +1184,111 @@ async function renderProfit() {
   draw();
 }
 
+// ---------- opportunities (what to do with your junk) ----------
+function openOpportunities() {
+  openSheet('Opportunities', '<p class="note">Loading…</p>');
+  renderOpportunities();
+}
+
+const OPP_CONFIDENCE_LABEL = { exact: 'seen it', bucket: 'predicted', quality: 'rough guess' };
+let oppSearchTimer;
+
+/** Confidence/trend hint fragments for a row, shared by the Opportunities sheet and the bag-slot badge tooltip. */
+function oppHints(r) {
+  const hints = [];
+  if (r.bestAction === 'disenchant' && r.disenchant) hints.push(OPP_CONFIDENCE_LABEL[r.disenchant.confidence] ?? r.disenchant.confidence);
+  if (r.priceTrend) {
+    const pct = Math.round(Math.abs(r.priceTrend.pctVsAverage));
+    if (pct >= 5) hints.push(`${pct}% ${r.priceTrend.pctVsAverage < 0 ? 'below' : 'above'} avg`);
+  }
+  return hints;
+}
+
+/** A row's sell/disenchant summary line, e.g. for a bag-slot tooltip. */
+function oppSummary(r) {
+  const label = r.bestAction === 'ah' ? 'Sell AH' : 'Disenchant';
+  const hints = oppHints(r);
+  return `${label} for ${coinsText(r.bestValue)}${hints.length ? ` (${hints.join(', ')})` : ''}`;
+}
+
+async function renderOpportunities() {
+  const g = cur();
+  if (!g) {
+    sheetBody.innerHTML = '<p class="note">Add a game in Settings first.</p>';
+    return;
+  }
+  let rows;
+  try {
+    rows = await api('GET', `/api/opportunities/${encodeURIComponent(g.id)}`);
+  } catch (e) {
+    sheetBody.innerHTML = `<p class="note">${esc(e.message)}</p>`;
+    return;
+  }
+  if (!rows.length) {
+    sheetBody.innerHTML = `
+      <p class="note">Nothing to show yet. This needs <a href="https://www.curseforge.com/wow/addons/auctionator" target="_blank" rel="noopener">Auctionator</a>
+      scanned at least once, and — for disenchant suggestions — the RosterBook Disenchant add-on installed and used in-game a few times.</p>`;
+    return;
+  }
+
+  const characters = [...new Set(rows.map((r) => r.character))].sort();
+  const state = { character: 'all', action: 'all', search: '' };
+
+  const draw = () => {
+    let shown = rows;
+    if (state.character !== 'all') shown = shown.filter((r) => r.character === state.character);
+    if (state.action !== 'all') shown = shown.filter((r) => r.bestAction === state.action);
+    const query = state.search.trim().toLowerCase();
+    if (query) shown = shown.filter((r) => r.itemName.toLowerCase().includes(query));
+
+    const list = shown.slice(0, 200).map((r) => {
+      const hints = [r.character, `x${r.count}`, ...oppHints(r)];
+      return `
+      <li class="profit-row">
+        ${icon({ icon: r.icon, quality: r.quality, classId: r.classId, subclassId: r.subclassId, equipLoc: r.equipLoc })}
+        <span class="who"><b>${esc(r.itemName)}</b><span class="hint">${hints.map(esc).join(' · ')}</span></span>
+        <span class="amt">${r.ahPrice == null ? '—' : coins(r.ahPrice)}</span>
+        <span class="amt">${r.disenchant == null ? '—' : coins(r.disenchant.value)}</span>
+        <span class="amt profit ok">${r.bestAction === 'ah' ? 'Sell AH' : 'Disenchant'} · ${coins(r.bestValue)}</span>
+      </li>`;
+    }).join('');
+
+    sheetBody.innerHTML = `
+      <div class="group">
+        <p class="hint">Items in your bags and bank, ranked by the best known thing to do with them: sell on the AH, or disenchant and sell the mats. "Rough guess"/"predicted" disenchant values come from other items of the same quality (and, for "predicted", item level) you've actually disenchanted — "seen it" means this exact item.</p>
+        <div class="profit-controls">
+          <label>Character <select id="opp-character">
+            <option value="all"${state.character === 'all' ? ' selected' : ''}>All</option>
+            ${characters.map((c) => `<option value="${esc(c)}"${state.character === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+          </select></label>
+          <label>Best action <select id="opp-action">
+            <option value="all"${state.action === 'all' ? ' selected' : ''}>All</option>
+            <option value="ah"${state.action === 'ah' ? ' selected' : ''}>Sell AH</option>
+            <option value="disenchant"${state.action === 'disenchant' ? ' selected' : ''}>Disenchant</option>
+          </select></label>
+          <label>Search <input type="search" id="opp-search" placeholder="Item name…" value="${esc(state.search)}"></label>
+        </div>
+        <div class="profit-head"><span></span><span>Item</span><span>AH price</span><span>Disenchant value</span><span>Best</span></div>
+        <ul class="profit-list">${list.length ? list : '<p class="note">Nothing matches these filters.</p>'}</ul>
+      </div>`;
+
+    $('#opp-character').addEventListener('change', (e) => { state.character = e.target.value; draw(); });
+    $('#opp-action').addEventListener('change', (e) => { state.action = e.target.value; draw(); });
+    $('#opp-search').addEventListener('input', (e) => {
+      clearTimeout(oppSearchTimer);
+      const val = e.target.value;
+      oppSearchTimer = setTimeout(() => {
+        state.search = val;
+        draw();
+        const input = $('#opp-search');
+        input.focus();
+        input.setSelectionRange(val.length, val.length);
+      }, 150);
+    });
+  };
+  draw();
+}
+
 sheetBody.addEventListener('click', async (e) => {
   const t = e.target.closest('button');
   if (!t) return;
@@ -1300,6 +1427,7 @@ $('#settings-btn').addEventListener('click', () => openSettings(state.session?.r
 $('#queue-btn').addEventListener('click', openQueue);
 $('#realm-status-btn').addEventListener('click', openRealmStatus);
 $('#profit-btn').addEventListener('click', openProfit);
+$('#opportunities-btn').addEventListener('click', openOpportunities);
 
 // ---------- data + live updates ----------
 const statusEl = $('#status');
@@ -1320,6 +1448,7 @@ async function fetchSession() {
   $('#settings-btn').hidden = state.session.role === 'unpaired';
   $('#realm-status-btn').hidden = state.session.role === 'unpaired';
   $('#profit-btn').hidden = state.session.role === 'unpaired';
+  $('#opportunities-btn').hidden = state.session.role === 'unpaired';
   $('.search').hidden = state.session.role === 'unpaired';
 }
 
@@ -1337,6 +1466,20 @@ async function fetchData() {
   }
   render();
   checkPaired();
+  loadOpportunities().then(render).catch(() => {});
+}
+
+/** Loads `/api/opportunities/{game}` for the current game and indexes it by
+ * character+realm+item, so bag/bank slots can show a sell-opportunity badge
+ * without a dedicated endpoint. Best-effort: a badge is a nice-to-have, never
+ * something that should block the bag view. */
+async function loadOpportunities() {
+  const g = state.session?.role !== 'unpaired' && state.data && cur();
+  if (!g) return;
+  if (state.opp?.gameId === g.id) return;
+  const rows = await api('GET', `/api/opportunities/${encodeURIComponent(g.id)}`);
+  const byKey = new Map(rows.map((r) => [`${r.character}\0${r.realm}\0${r.itemId}`, r]));
+  state.opp = { gameId: g.id, byKey };
 }
 
 let es;

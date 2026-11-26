@@ -4,8 +4,11 @@
 pub mod addon;
 pub mod ah;
 pub mod detect;
+pub mod disenchant;
+pub mod features;
 pub mod lua;
 pub mod model;
+pub mod opportunities;
 pub mod profit;
 pub mod settings;
 

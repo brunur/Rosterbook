@@ -10,6 +10,11 @@ struct Setup {
     _tmp: tempfile::TempDir,
     sv_dir: std::path::PathBuf,
     queue_dir: std::path::PathBuf,
+    // Reserved for a price-history test once there's an Auctionator.lua
+    // fixture to capture from (it needs a CBOR-encoded blob per item, not a
+    // plain Lua literal -- see `ah::auctionator`).
+    #[allow(dead_code)]
+    history_dir: std::path::PathBuf,
     port: u16,
     _server: alt_ledger_server::Running,
 }
@@ -25,11 +30,13 @@ async fn setup() -> Setup {
         port: Some(0),
         cache_dir: Some(tmp.path().join("cache")),
         queue_dir: Some(tmp.path().join("queue")),
+        history_dir: Some(tmp.path().join("price-history")),
     })
     .await
     .unwrap();
     let queue_dir = tmp.path().join("queue");
-    Setup { port: server.port, sv_dir, queue_dir, _tmp: tmp, _server: server }
+    let history_dir = tmp.path().join("price-history");
+    Setup { port: server.port, sv_dir, queue_dir, history_dir, _tmp: tmp, _server: server }
 }
 
 fn client() -> reqwest::Client {

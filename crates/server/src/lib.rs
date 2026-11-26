@@ -24,7 +24,7 @@ mod queue;
 mod realm_status;
 mod watch;
 
-use alt_ledger_core::{addon, ah, detect, model, profit, settings::{Device, GameConfig, ViewPrefs}, GameData, Settings};
+use alt_ledger_core::{addon, ah, detect, disenchant, model, opportunities, profit, settings::{Device, GameConfig, ViewPrefs}, GameData, Settings};
 use axum::{
     body::Body,
     extract::{ConnectInfo, Path as UrlPath, Query, Request, State},
@@ -79,6 +79,9 @@ pub struct Options {
     /// Where `alt-ledger-queue-watcher` writes its samples and status
     /// (defaults to the same settings folder's `queue` subfolder).
     pub queue_dir: Option<PathBuf>,
+    /// Where AH price history is appended to (defaults to the same settings
+    /// folder's `price-history` subfolder).
+    pub history_dir: Option<PathBuf>,
 }
 
 struct Pairing {
@@ -120,8 +123,19 @@ pub struct Inner {
     icons: icons::IconCache,
     suggestions: RwLock<Vec<Suggestion>>,
     queue_dir: PathBuf,
+    history_dir: PathBuf,
+    /// Last time each game's prices were captured to history, so a burst of
+    /// Auctionator saves (scanning the AH writes its SavedVariables every
+    /// few seconds) doesn't turn into one snapshot per write — see
+    /// `capture_prices`.
+    last_capture: Mutex<HashMap<String, i64>>,
     realm_status: realm_status::RealmStatus,
 }
+
+/// History only needs to resolve a multi-day trend, so there's nothing to
+/// gain from capturing more often than this — and real cost (file size, load
+/// time) from doing so when an active AH scan saves every few seconds.
+const MIN_CAPTURE_INTERVAL: i64 = 15 * 60;
 
 pub type AppState = Arc<Inner>;
 
@@ -160,6 +174,41 @@ impl Inner {
         self.queue_icons(id).await;
     }
 
+    /// Snapshots one game's current AH prices into its price history. A
+    /// missing/empty Auctionator export isn't a failure — just nothing to
+    /// capture yet — so errors are logged, not propagated.
+    pub async fn capture_prices(self: &Arc<Self>, id: &str) {
+        let ts = now();
+        {
+            let mut last = self.last_capture.lock().await;
+            if last.get(id).is_some_and(|&t| ts - t < MIN_CAPTURE_INTERVAL) {
+                return;
+            }
+            last.insert(id.to_string(), ts);
+        }
+        let Some(sv_dir) = self.settings.read().await.games.iter().find(|g| g.id == id).map(|g| g.saved_variables_dir.clone()) else {
+            return;
+        };
+        let mut prices_by_realm = load_prices(sv_dir).await;
+        // Bound history to items actually ranked in Opportunities, not every
+        // item the AH add-on has ever cached a price for (the whole AH) —
+        // see `opportunities::owned_item_ids`.
+        if let Some(game) = self.games.read().await.get(id) {
+            let owned = opportunities::owned_item_ids(game);
+            for table in prices_by_realm.values_mut() {
+                table.retain(|item_id, _| owned.contains(item_id));
+            }
+        }
+        let (history_dir, id) = (self.history_dir.clone(), id.to_string());
+        let result =
+            tokio::task::spawn_blocking(move || ah::history::capture(&history_dir, &id, &prices_by_realm, ts)).await;
+        match result {
+            Ok(Err(e)) => eprintln!("Couldn't save price history: {e}"),
+            Ok(Ok(())) => self.bump(),
+            Err(_) => {}
+        }
+    }
+
     /// If item pictures are on, fetches any this game now needs, in the background.
     async fn queue_icons(self: &Arc<Self>, id: &str) {
         let flavor_dir = {
@@ -184,6 +233,7 @@ impl Inner {
         self.icons.forget_others(&ids);
         for id in ids {
             self.reload_game(&id).await;
+            self.capture_prices(&id).await;
         }
         self.rewatch().await;
     }
@@ -589,8 +639,13 @@ async fn install_addon(Extension(role): Extension<Role>, Json(body): Json<Instal
     if let Err(r) = need_owner(&role) {
         return r;
     }
-    match tokio::task::spawn_blocking(move || addon::install(&body.flavor_dir)).await {
-        Ok(Ok(version)) => Json(json!({ "installed": version })).into_response(),
+    let dir = body.flavor_dir.clone();
+    match tokio::task::spawn_blocking(move || addon::install(&dir)).await {
+        Ok(Ok(version)) => {
+            let dir = body.flavor_dir.clone();
+            let _ = tokio::task::spawn_blocking(move || addon::install_disenchant(&dir)).await;
+            Json(json!({ "installed": version })).into_response()
+        }
         Ok(Err(e)) => err(StatusCode::BAD_REQUEST, e.to_string()),
         Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
@@ -640,7 +695,10 @@ async fn answer_suggestion(
         }
         let dir = sug.flavor_dir.clone();
         match tokio::task::spawn_blocking(move || addon::install(&dir)).await {
-            Ok(Ok(_)) => {}
+            Ok(Ok(_)) => {
+                let dir = sug.flavor_dir.clone();
+                let _ = tokio::task::spawn_blocking(move || addon::install_disenchant(&dir)).await;
+            }
             Ok(Err(e)) => return err(StatusCode::BAD_REQUEST, e.to_string()),
             Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         }
@@ -697,6 +755,22 @@ async fn put_icons(State(s): State<AppState>, Extension(role): Extension<Role>, 
     StatusCode::NO_CONTENT.into_response()
 }
 
+/// Every supported price add-on's data in one account's SavedVariables,
+/// folded together by realm (a later source overwrites an earlier one for
+/// the same item — moot today with only one source, ready for more).
+async fn load_prices(sv_dir: PathBuf) -> HashMap<String, ah::PriceTable> {
+    tokio::task::spawn_blocking(move || {
+        ah::Source::ALL.iter().fold(HashMap::new(), |mut acc, source| {
+            for (realm, table) in ah::load_all(&sv_dir, *source) {
+                acc.entry(realm).or_insert_with(HashMap::new).extend(table);
+            }
+            acc
+        })
+    })
+    .await
+    .unwrap_or_default()
+}
+
 /// Known recipes ranked by AH profit, for one game. Reads whichever
 /// supported price add-on has data in that account's SavedVariables; an
 /// account with none shows an empty list rather than an error.
@@ -710,17 +784,30 @@ async fn get_profit(State(s): State<AppState>, Extension(role): Extension<Role>,
     let Some(data) = s.games.read().await.get(&game).cloned() else {
         return Json(json!([])).into_response();
     };
-    let prices_by_realm = tokio::task::spawn_blocking(move || {
-        ah::Source::ALL.iter().fold(std::collections::HashMap::new(), |mut acc, source| {
-            for (realm, table) in ah::load_all(&sv_dir, *source) {
-                acc.entry(realm).or_insert_with(std::collections::HashMap::new).extend(table);
-            }
-            acc
-        })
-    })
-    .await
-    .unwrap_or_default();
+    let prices_by_realm = load_prices(sv_dir).await;
     Json(profit::rank_recipes(&data, &prices_by_realm)).into_response()
+}
+
+/// What to do with items already sitting in bags/bank — vendor, AH, or
+/// disenchant — ranked by best known value. Reads the disenchant add-on's
+/// learned yields the same way `get_profit` reads AH prices: an account
+/// with none shows an empty list rather than an error.
+async fn get_opportunities(State(s): State<AppState>, Extension(role): Extension<Role>, UrlPath(game): UrlPath<String>) -> Response {
+    if let Err(r) = need_view(&role) {
+        return r;
+    }
+    let Some(sv_dir) = s.settings.read().await.games.iter().find(|g| g.id == game).map(|g| g.saved_variables_dir.clone()) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let Some(data) = s.games.read().await.get(&game).cloned() else {
+        return Json(json!([])).into_response();
+    };
+    let prices_by_realm = load_prices(sv_dir.clone()).await;
+    let disenchant_data =
+        tokio::task::spawn_blocking(move || disenchant::load_disenchant_data(&sv_dir)).await.unwrap_or_default();
+    let history_dir = s.history_dir.clone();
+    let history = tokio::task::spawn_blocking(move || ah::history::load(&history_dir, &game)).await.unwrap_or_default();
+    Json(opportunities::rank_disposals(&data, &disenchant_data, &prices_by_realm, &history, now())).into_response()
 }
 
 /// A cached item picture. Paths come only from the cache, never from the request.
@@ -754,7 +841,10 @@ async fn put_lan(State(s): State<AppState>, Extension(role): Extension<Role>, Js
     }
     s.settings.write().await.lan = body.lan;
     match s.save_settings().await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Ok(()) => {
+            s.bump();
+            StatusCode::NO_CONTENT.into_response()
+        }
         Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
 }
@@ -830,6 +920,15 @@ async fn pair(
 ) -> Response {
     if role != Role::Unpaired {
         return Redirect::to("/").into_response();
+    }
+    // This is meant to be visited as a real page load (a scanned QR code, a
+    // tapped link), not loaded in the background by a hostile page on the
+    // same network (e.g. `<img src="http://host/pair?code=...">`) — modern
+    // browsers mark that distinction in Sec-Fetch-Dest, so reject anything
+    // that isn't a top-level navigation. An older browser that sends no such
+    // header at all still goes through, same as before.
+    if headers.get("sec-fetch-dest").is_some_and(|v| v != "document") {
+        return Redirect::to("/?pair=failed").into_response();
     }
     let supplied = q.code.unwrap_or_default();
     let ok = {
@@ -988,6 +1087,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/setup/suggestions/{id}/{answer}", post(answer_suggestion))
         .route("/api/icon/{game}/{id}", get(icon))
         .route("/api/profit/{game}", get(get_profit))
+        .route("/api/opportunities/{game}", get(get_opportunities))
         .route("/api/setup/faction-names", put(put_faction_names))
         .route("/api/pair", post(start_pairing))
         .route("/api/devices", get(list_devices))
@@ -1050,6 +1150,8 @@ pub async fn start(opts: Options) -> anyhow::Result<Running> {
         icons: icons::IconCache::new(&opts.cache_dir.unwrap_or_else(alt_ledger_core::settings::default_cache_dir)),
         suggestions: RwLock::new(Vec::new()),
         queue_dir: opts.queue_dir.unwrap_or_else(|| alt_ledger_core::settings::default_dir().join("queue")),
+        history_dir: opts.history_dir.unwrap_or_else(|| alt_ledger_core::settings::default_dir().join("price-history")),
+        last_capture: Mutex::new(HashMap::new()),
         realm_status: realm_status::RealmStatus::new(),
     });
     state.reload_all().await;

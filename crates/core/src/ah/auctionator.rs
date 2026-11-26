@@ -31,24 +31,14 @@ pub fn realms(src: &[u8]) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Prices for one realm. Falls back to the only realm in the file if `realm`
-/// isn't an exact match (connected-realm names drift, e.g. the root name
-/// Blizzard reports can differ from the one the add-on last normalized to).
+/// Prices for one realm, by exact name. A realm-name mismatch (connected-
+/// realm names drift, e.g. the root name Blizzard reports can differ from
+/// the one the add-on last normalized to) isn't handled here — real callers
+/// go through `parse_all` plus `super::resolve_realm`, which centralizes
+/// that fallback for every AH source, not just this one.
+#[cfg(test)]
 pub fn parse(src: &[u8], realm: &str) -> PriceTable {
-    let out = PriceTable::new();
-    let Some(db) = find_db(src) else { return out };
-    let Some(table) = db.as_table() else { return out };
-
-    let realm_value = table
-        .iter()
-        .find_map(|(k, v)| matches!(k, Key::Str(s) if s == realm).then_some(v))
-        .or_else(|| {
-            let mut realms = table.iter().filter(|(k, _)| !matches!(k, Key::Str(s) if s == "__dbversion"));
-            let only = realms.next()?;
-            realms.next().is_none().then_some(&only.1)
-        });
-
-    prices_from_realm_value(realm_value)
+    parse_all(src).remove(realm).unwrap_or_default()
 }
 
 /// Prices for every realm in the file, keyed by realm name. Accounts that
@@ -188,16 +178,6 @@ mod tests {
         let prices = parse(src.as_bytes(), "Area 52");
         assert_eq!(prices[&12345].min_buyout, 1234);
         assert_eq!(prices[&12345].source, "auctionator");
-    }
-
-    #[test]
-    fn falls_back_to_the_only_realm_present() {
-        let blob = cbor_record(500);
-        let escaped: String = blob.iter().map(|b| format!("\\{b}")).collect();
-        let src = format!(r#"AUCTIONATOR_PRICE_DATABASE = {{ __dbversion = 8, ["Stormrage"] = {{ ["999"] = "{escaped}" }} }}"#);
-
-        let prices = parse(src.as_bytes(), "Some Other Realm Name");
-        assert_eq!(prices[&999].min_buyout, 500);
     }
 
     #[test]

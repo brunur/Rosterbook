@@ -1,0 +1,10 @@
+## Interface: 120105, 16001
+## Title: RosterBook Disenchant
+## Notes: Learns what each item actually disenchants into, then shows expected mat value and profit right on its tooltip (Auction House, bags, bank). No spreadsheet, no guesswork — only reports a number once it's watched you disenchant that item.
+## Author: Bob
+## Version: 0.1.0
+## SavedVariables: RosterbookDisenchantDB
+## IconTexture: Interface\Icons\inv_enchant_disenchant
+## Category: Inventory
+
+RosterbookDisenchant.lua

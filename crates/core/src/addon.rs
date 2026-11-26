@@ -12,6 +12,17 @@ pub const FILES: &[(&str, &str)] = &[
     ("LICENSE.txt", include_str!("../../../addon/Rosterbook/LICENSE.txt")),
 ];
 
+/// The companion add-on that learns disenchant yields in-game and shows
+/// their profit on item tooltips — optional, but the desktop app's own
+/// disenchant-profit view (`opportunities`) depends on its SavedVariables
+/// existing, so it's installed alongside the core add-on.
+pub const DISENCHANT_FOLDER: &str = "RosterbookDisenchant";
+
+pub const DISENCHANT_FILES: &[(&str, &str)] = &[
+    ("RosterbookDisenchant.toc", include_str!("../../../addon/RosterbookDisenchant/RosterbookDisenchant.toc")),
+    ("RosterbookDisenchant.lua", include_str!("../../../addon/RosterbookDisenchant/RosterbookDisenchant.lua")),
+];
+
 /// Version of the add-on bundled with this build of the app.
 pub fn bundled_version() -> String {
     toc_version(FILES[0].1).unwrap_or_else(|| "unknown".into())
@@ -82,21 +93,33 @@ pub fn installed_version(flavor_dir: &Path) -> Option<String> {
 /// The installed copy also declares the game version actually installed in
 /// that folder, so a game patch doesn't get it switched off as out of date.
 pub fn install(flavor_dir: &Path) -> anyhow::Result<String> {
+    install_files(flavor_dir, FOLDER, FILES)?;
+    Ok(bundled_version())
+}
+
+/// Installs or updates the companion disenchant-tracking add-on. Best-effort
+/// alongside `install()`: this one has no version-compatibility reporting of
+/// its own (nothing in the app checks it's current), it's just copied in.
+pub fn install_disenchant(flavor_dir: &Path) -> anyhow::Result<()> {
+    install_files(flavor_dir, DISENCHANT_FOLDER, DISENCHANT_FILES)
+}
+
+fn install_files(flavor_dir: &Path, folder: &str, files: &[(&str, &str)]) -> anyhow::Result<()> {
     anyhow::ensure!(
         flavor_dir.join("WTF").is_dir() || flavor_dir.join("Interface").is_dir() || flavor_dir.join(".flavor.info").is_file(),
         "{} doesn't look like a WoW game folder",
         flavor_dir.display()
     );
     let interface = game_version(flavor_dir).as_deref().and_then(interface_for);
-    let dir = addon_dir(flavor_dir);
+    let dir = flavor_dir.join("Interface").join("AddOns").join(folder);
     std::fs::create_dir_all(&dir)?;
-    for (name, contents) in FILES {
+    for (name, contents) in files {
         let contents = if name.ends_with(".toc") { with_interface(contents, interface) } else { contents.to_string() };
         let tmp = dir.join(format!("{name}.tmp"));
         std::fs::write(&tmp, contents)?;
         std::fs::rename(&tmp, dir.join(name))?;
     }
-    Ok(bundled_version())
+    Ok(())
 }
 
 /// Adds `interface` to the TOC's `## Interface:` list if it's missing.
@@ -171,5 +194,16 @@ mod tests {
     fn refuses_folders_that_are_not_wow() {
         let tmp = tempfile::tempdir().unwrap();
         assert!(install(tmp.path()).is_err());
+    }
+
+    #[test]
+    fn installs_the_disenchant_addon_alongside_the_core_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        let flavor = tmp.path().join("_retail_");
+        std::fs::create_dir_all(flavor.join("WTF")).unwrap();
+        install_disenchant(&flavor).unwrap();
+        let dir = flavor.join("Interface").join("AddOns").join(DISENCHANT_FOLDER);
+        assert!(dir.join("RosterbookDisenchant.toc").is_file());
+        assert!(dir.join("RosterbookDisenchant.lua").is_file());
     }
 }

@@ -51,6 +51,7 @@ pub fn run() {
                 port: None,
                 cache_dir: None,
                 queue_dir: None,
+                history_dir: None,
             }))?;
             let origin: Url = running.local_url().parse()?;
 

@@ -359,6 +359,13 @@ h2.sec.rep-group:first-child { margin-top: 0; }
   font-size: .82rem; font-weight: 600; color: var(--ink);
   text-shadow: 0 0 2px var(--bg), 0 0 4px var(--bg), 0 0 6px var(--bg);
 }
+.ico .opp {
+  position: absolute; left: 3px; top: 1px; z-index: 1;
+  font-size: .78rem; font-weight: 700; color: var(--ink);
+  text-shadow: 0 0 2px var(--bg), 0 0 4px var(--bg), 0 0 6px var(--bg);
+}
+.ico .opp.ok { color: var(--ok); }
+.ico .opp.bad { color: var(--bad); }
 
 .bag { margin-bottom: 24px; }
 .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }

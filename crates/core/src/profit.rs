@@ -55,22 +55,10 @@ pub struct CraftSuggestion {
 pub fn rank_recipes(game: &GameData, prices_by_realm: &HashMap<String, PriceTable>) -> Vec<CraftSuggestion> {
     let mut out = Vec::new();
     let empty = PriceTable::new();
-    let only_realm = match prices_by_realm.len() {
-        1 => prices_by_realm.values().next(),
-        _ => None,
-    };
     for character in &game.characters {
-        let prices = prices_by_realm.get(&character.realm).or(only_realm).unwrap_or(&empty);
+        let (_, prices) = crate::ah::resolve_realm(prices_by_realm, &character.realm).unwrap_or((character.realm.as_str(), &empty));
         let owned = owned_counts(character);
-        // A character's recipe list can hold the same recipe id twice (seen
-        // from a real scan — likely a Blizzard GetAllRecipeIDs() quirk, not
-        // our merge logic). Keep the first occurrence only; a genuinely
-        // different rank of an item has its own recipe id and stays.
-        let mut seen_ids = std::collections::HashSet::new();
         for recipe in &character.recipes {
-            if !seen_ids.insert(recipe.id) {
-                continue;
-            }
             let Some(output) = recipe.output else { continue };
             if recipe.reagents.is_empty() {
                 continue;
@@ -87,7 +75,7 @@ pub fn rank_recipes(game: &GameData, prices_by_realm: &HashMap<String, PriceTabl
             let mut missing_reagents = Vec::new();
             for reagent in &recipe.reagents {
                 match prices.get(&reagent.id) {
-                    Some(p) => cost += p.min_buyout * reagent.count,
+                    Some(p) => cost = cost.saturating_add(p.min_buyout.saturating_mul(reagent.count)),
                     None => missing_reagents.push(reagent.name.clone()),
                 }
             }
@@ -360,29 +348,6 @@ mod tests {
         assert_eq!(ranked.len(), 2);
         assert_eq!(ranked[0].recipe_id, 1, "the fully-priced recipe sorts first");
         assert_eq!(ranked[1].recipe_id, 2);
-    }
-
-    #[test]
-    fn dedupes_the_same_recipe_id_seen_twice_on_one_character() {
-        let recipe = Recipe {
-            id: 1,
-            name: "First Aid Kit".into(),
-            profession: Some("First Aid".into()),
-            output: Some(100),
-            icon: None,
-            reagents: vec![Reagent { id: 10, name: "Linen".into(), count: 1, icon: None }],
-            vendor_price: None,
-        };
-        let game = GameData {
-            characters: vec![character("Bruen", vec![recipe.clone(), recipe])],
-            ..Default::default()
-        };
-        let mut prices = PriceTable::new();
-        prices.insert(10, price(10));
-        prices.insert(100, price(100));
-        let prices_by_realm = HashMap::from([("Area 52".to_string(), prices)]);
-
-        assert_eq!(rank_recipes(&game, &prices_by_realm).len(), 1);
     }
 
     #[test]

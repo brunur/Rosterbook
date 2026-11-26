@@ -262,11 +262,17 @@ mod tests {
         std::fs::write(sv.join(DATA_FILE), "RosterbookDB = {}").unwrap();
         std::fs::create_dir_all(root.join("_classic_era_/WTF/Account/OTHER/SavedVariables")).unwrap();
 
+        // `detect` also scans this machine's real install locations (Wine
+        // prefixes, Program Files, /Applications) alongside `extra` — that's
+        // intentional (see `candidate_roots`), so a dev machine with a real
+        // WoW install installed elsewhere can legitimately return more than
+        // just this test's own fixture. Find this fixture by its root
+        // instead of assuming it's the only result.
         let found = detect(&[tmp.path().to_path_buf()]);
-        assert_eq!(found.len(), 1);
-        let names: Vec<_> = found[0].flavors.iter().map(|f| f.name.as_str()).collect();
+        let mine = found.iter().find(|i| i.root == root).expect("the fixture install should be among the results");
+        let names: Vec<_> = mine.flavors.iter().map(|f| f.name.as_str()).collect();
         assert_eq!(names, ["Classic Era", "Retail"]);
-        let retail = &found[0].flavors[1];
+        let retail = &mine.flavors[1];
         assert_eq!(retail.accounts.len(), 1, "the shared SavedVariables folder is not an account");
         assert!(retail.accounts[0].has_data);
         assert_eq!(retail.accounts[0].game_id, game_id(&sv));

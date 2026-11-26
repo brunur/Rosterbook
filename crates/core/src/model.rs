@@ -451,6 +451,16 @@ fn recipe(v: &Value) -> Recipe {
     }
 }
 
+/// A character's recipe list can hold the same recipe id twice (a real
+/// `C_TradeSkillUI.GetAllRecipeIDs()` quirk, not our parsing) — keep the
+/// first occurrence only, here at the source, so every consumer (profit
+/// ranking, the Professions tab) sees a clean list without each needing its
+/// own dedup.
+fn dedupe_recipes(recipes: Vec<Recipe>) -> Vec<Recipe> {
+    let mut seen_ids = std::collections::HashSet::new();
+    recipes.into_iter().filter(|r| seen_ids.insert(r.id)).collect()
+}
+
 fn currency(v: &Value) -> Currency {
     let id = int(v, "id").unwrap_or(0);
     Currency {
@@ -555,7 +565,7 @@ fn character(c: &Value, now: i64) -> Character {
                 secondary: text(p, "kind").as_deref() == Some("secondary"),
             })
             .collect(),
-        recipes: list(c.get("recipes").unwrap_or(&Value::Null)).into_iter().map(recipe).collect(),
+        recipes: dedupe_recipes(list(c.get("recipes").unwrap_or(&Value::Null)).into_iter().map(recipe).collect()),
         recipes_scanned: int(c, "recipesScanned"),
         reputations,
         currencies: list(c.get("currencies").unwrap_or(&Value::Null)).into_iter().map(currency).collect(),
@@ -604,6 +614,13 @@ mod tests {
         assert!(!g.icon_ids().contains(&0), "a 0 icon (not-yet-loaded reagent) must never reach the prefetch set");
         let w = g.warband.expect("warband bank");
         assert_eq!(w.tabs[0].items[0].count, 200);
+    }
+
+    #[test]
+    fn dedupe_recipes_keeps_the_first_occurrence_of_a_repeated_id() {
+        let recipe = |id: i64, name: &str| Recipe { id, name: name.into(), profession: None, output: None, icon: None, reagents: vec![], vendor_price: None };
+        let deduped = dedupe_recipes(vec![recipe(1, "First Aid Kit"), recipe(1, "First Aid Kit"), recipe(2, "Linen Bandage")]);
+        assert_eq!(deduped.iter().map(|r| r.id).collect::<Vec<_>>(), [1, 2]);
     }
 
     #[test]

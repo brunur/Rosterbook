@@ -28,8 +28,15 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut running =
-        start(Options { settings_path: settings_path.clone(), ui_dir, port, cache_dir: None, queue_dir }).await?;
+    let mut running = start(Options {
+        settings_path: settings_path.clone(),
+        ui_dir,
+        port,
+        cache_dir: None,
+        queue_dir,
+        history_dir: None,
+    })
+    .await?;
     println!("\nRosterBook {} is running.", alt_ledger_server::VERSION);
     println!("  Settings:    {}", settings_path.display());
     println!("  On this PC:  http://localhost:{}", running.port);
