@@ -87,6 +87,30 @@ RosterbookDB = {
 			["class"] = "Druid",
 			["classId"] = 11,
 			["classToken"] = "DRUID",
+			["currencies"] = {
+				[1] = {
+					["icon"] = 133784,
+					["id"] = 3012,
+					["name"] = "Merchant's Favor",
+					["quality"] = 1,
+					["quantity"] = 45,
+				},
+				[2] = {
+					["icon"] = 134441,
+					["id"] = 515,
+					["name"] = "Darkmoon Prize Ticket",
+					["quality"] = 1,
+					["quantity"] = 12,
+				},
+				[3] = {
+					["icon"] = 133784,
+					["id"] = 1792,
+					["maxQuantity"] = 4000,
+					["name"] = "Honor Points",
+					["quality"] = 1,
+					["quantity"] = 2450,
+				},
+			},
 			["equipment"] = {
 				[1] = {
 					["classId"] = 4,
@@ -153,6 +177,24 @@ RosterbookDB = {
 			["raceId"] = 95,
 			["raceToken"] = "Skyborne",
 			["realm"] = "Forever",
+			["recipes"] = {
+				[1] = {
+					["icon"] = 104401,
+					["id"] = 4401,
+					["name"] = "Light Armor Kit",
+					["output"] = 4401,
+					["profession"] = "Leatherworking",
+					["reagents"] = {
+						[1] = {
+							["count"] = 2,
+							["icon"] = 102318,
+							["id"] = 2318,
+							["name"] = "Light Leather",
+						},
+					},
+				},
+			},
+			["recipesScanned"] = 1792593450,
 			["reputations"] = {
 				[1] = {
 					["group"] = "Alliance",

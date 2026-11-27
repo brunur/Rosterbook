@@ -87,6 +87,30 @@ RosterbookDB = {
 			["class"] = "Paladin",
 			["classId"] = 2,
 			["classToken"] = "PALADIN",
+			["currencies"] = {
+				[1] = {
+					["icon"] = 133784,
+					["id"] = 3012,
+					["name"] = "Merchant's Favor",
+					["quality"] = 1,
+					["quantity"] = 45,
+				},
+				[2] = {
+					["icon"] = 134441,
+					["id"] = 515,
+					["name"] = "Darkmoon Prize Ticket",
+					["quality"] = 1,
+					["quantity"] = 12,
+				},
+				[3] = {
+					["icon"] = 133784,
+					["id"] = 1792,
+					["maxQuantity"] = 4000,
+					["name"] = "Honor Points",
+					["quality"] = 1,
+					["quantity"] = 2450,
+				},
+			},
 			["equipment"] = {
 				[1] = {
 					["classId"] = 4,
@@ -109,23 +133,6 @@ RosterbookDB = {
 					["subclassId"] = 10,
 				},
 			},
-			["currencies"] = {
-				[1] = {
-					["icon"] = 133784,
-					["id"] = 3012,
-					["name"] = "Merchant's Favor",
-					["quality"] = 1,
-					["quantity"] = 45,
-				},
-				[2] = {
-					["icon"] = 133784,
-					["id"] = 1792,
-					["maxQuantity"] = 4000,
-					["name"] = "Honor Points",
-					["quality"] = 1,
-					["quantity"] = 2450,
-				},
-			},
 			["faction"] = "Alliance",
 			["firstName"] = "Norasonia",
 			["guid"] = "Player-4620-009148B3",
@@ -146,6 +153,18 @@ RosterbookDB = {
 			["playedThisLevel"] = 2147,
 			["powerMax"] = 475,
 			["powerToken"] = "MANA",
+			["professions"] = {
+				[1] = {
+					["kind"] = "primary",
+					["max"] = 100,
+					["name"] = "Blacksmithing",
+					["rank"] = 85,
+				},
+			},
+			["race"] = "Dwarf",
+			["raceId"] = 3,
+			["raceToken"] = "Dwarf",
+			["realm"] = "Forever",
 			["recipes"] = {
 				[1] = {
 					["icon"] = 136241,
@@ -154,43 +173,16 @@ RosterbookDB = {
 					["output"] = 7069,
 					["profession"] = "Blacksmithing",
 					["reagents"] = {
-						[1] = { ["count"] = 2, ["icon"] = 133828, ["id"] = 2840, ["name"] = "Khorium Ore" },
-						-- GetItemIconByID returns 0 for an item not yet loaded; this must
-						-- never reach the icon-prefetch set (crates/core/src/model.rs
-						-- icon_ids): a 0 there fails the whole batch fetch and takes
-						-- every other icon down with it.
-						[2] = { ["count"] = 1, ["icon"] = 0, ["id"] = 9999, ["name"] = "Unloaded Reagent" },
+						[1] = {
+							["count"] = 2,
+							["icon"] = 102840,
+							["id"] = 2840,
+							["name"] = "Khorium Ore",
+						},
 					},
 				},
 			},
 			["recipesScanned"] = 1792593450,
-			["professions"] = {
-				[1] = {
-					["expansion"] = "Khaz Algar Blacksmithing",
-					["kind"] = "primary",
-					["max"] = 100,
-					["name"] = "Blacksmithing",
-					["rank"] = 85,
-				},
-				[2] = {
-					["expansion"] = "Khaz Algar Mining",
-					["kind"] = "primary",
-					["max"] = 100,
-					["name"] = "Mining",
-					["rank"] = 100,
-				},
-				[3] = {
-					["expansion"] = "Khaz Algar Cooking",
-					["kind"] = "secondary",
-					["max"] = 100,
-					["name"] = "Cooking",
-					["rank"] = 12,
-				},
-			},
-			["race"] = "Dwarf",
-			["raceId"] = 3,
-			["raceToken"] = "Dwarf",
-			["realm"] = "Forever",
 			["reputations"] = {
 				[1] = {
 					["group"] = "Khaz Algar",
