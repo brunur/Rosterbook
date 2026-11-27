@@ -78,6 +78,8 @@ impl Watcher {
                                 Kind::GameData => state.reload_game(&id).await,
                                 Kind::Prices => state.capture_prices(&id).await,
                             }
+                            // Either kind of change can change the ranking.
+                            state.sync_opportunities_addon(&id).await;
                         }
                     }
                 }

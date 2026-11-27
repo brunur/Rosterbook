@@ -141,6 +141,74 @@ pub fn rank_disposals(
     out
 }
 
+/// How many rows to sync to the in-game add-on — `rows` is already sorted
+/// best-first, so this just bounds the SavedVariables file (and the size of
+/// every future logout/reload resave of it) regardless of roster size.
+const SYNC_ROW_LIMIT: usize = 150;
+
+/// Serializes ranked disposals as a SavedVariables-shaped Lua literal, for
+/// `addon/RosterbookOpportunities` to read back in at its next login/reload —
+/// the only channel from the desktop app into the game (WoW add-ons have no
+/// networking API). Not a general-purpose Lua serializer, just this one shape.
+pub fn to_lua_sync(rows: &[ItemDisposal], now: i64) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    writeln!(out, "RosterbookOpportunitiesDB = {{").unwrap();
+    writeln!(out, "  generatedAt = {now},").unwrap();
+    writeln!(out, "  rows = {{").unwrap();
+    for r in rows.iter().take(SYNC_ROW_LIMIT) {
+        write!(out, "    {{ character = {}, realm = {}, itemId = {}, itemName = {}, icon = {}, quality = {}, count = {}, classId = {}, subclassId = {}, equipLoc = {}, ahPrice = {}, priceTrendPct = {}, disenchantValue = {}, disenchantConfidence = {}, bestAction = {}, bestValue = {} }},\n",
+            lua_str(&r.character),
+            lua_str(&r.realm),
+            r.item_id,
+            lua_str(&r.item_name),
+            lua_opt_num(r.icon.map(i64::from)),
+            r.quality,
+            r.count,
+            lua_opt_num(r.class_id),
+            lua_opt_num(r.subclass_id),
+            lua_opt_str(r.equip_loc.as_deref()),
+            lua_opt_num(r.ah_price),
+            lua_opt_f64(r.price_trend.map(|t| t.pct_vs_average)),
+            lua_opt_num(r.disenchant.as_ref().map(|d| d.value)),
+            lua_opt_str(r.disenchant.as_ref().map(|d| d.confidence)),
+            lua_str(r.best_action),
+            r.best_value,
+        ).unwrap();
+    }
+    writeln!(out, "  }},").unwrap();
+    writeln!(out, "}}").unwrap();
+    out
+}
+
+fn lua_str(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            _ => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+fn lua_opt_str(s: Option<&str>) -> String {
+    s.map(lua_str).unwrap_or_else(|| "nil".to_string())
+}
+
+fn lua_opt_num(n: Option<i64>) -> String {
+    n.map(|n| n.to_string()).unwrap_or_else(|| "nil".to_string())
+}
+
+fn lua_opt_f64(n: Option<f64>) -> String {
+    n.map(|n| format!("{n}")).unwrap_or_else(|| "nil".to_string())
+}
+
 fn is_disenchantable(item: &Item) -> bool {
     let Some(equip_loc) = item.equip_loc.as_deref().filter(|s| !s.is_empty()) else { return false };
     if matches!(equip_loc, "INVTYPE_BAG" | "INVTYPE_QUIVER" | "INVTYPE_AMMO") {
@@ -396,5 +464,71 @@ mod tests {
         let ranked = rank_disposals(&game, &DisenchantData::default(), &by_realm, &History::new(), 1_000_000);
         assert_eq!(ranked.len(), 1);
         assert!(ranked[0].price_trend.is_none());
+    }
+
+    fn sample_disposal() -> ItemDisposal {
+        ItemDisposal {
+            character: "Bruen".into(),
+            realm: "Area 52".into(),
+            item_id: 791,
+            item_name: "Gnarled \"Ash\" Staff\\Oak".into(),
+            icon: Some(135139),
+            quality: 3,
+            count: 1,
+            class_id: Some(2),
+            subclass_id: Some(10),
+            equip_loc: Some("INVTYPE_2HWEAPON".into()),
+            vendor_price: None,
+            ah_price: Some(10313),
+            price_trend: Some(PriceTrend { pct_vs_average: -12.5 }),
+            disenchant: Some(DisenchantOption { value: 225, confidence: "exact", seen: 2 }),
+            best_action: "ah",
+            best_value: 10313,
+        }
+    }
+
+    #[test]
+    fn to_lua_sync_emits_valid_lua_that_round_trips_every_field() {
+        let lua = to_lua_sync(&[sample_disposal()], 1_700_000_000);
+        let vars = crate::lua::parse_saved_variables(&lua).expect("valid Lua");
+        let db = &vars["RosterbookOpportunitiesDB"];
+        assert_eq!(db["generatedAt"], 1_700_000_000);
+        let row = &db["rows"][0];
+        assert_eq!(row["character"], "Bruen");
+        assert_eq!(row["realm"], "Area 52");
+        assert_eq!(row["itemId"], 791);
+        assert_eq!(row["itemName"], "Gnarled \"Ash\" Staff\\Oak");
+        assert_eq!(row["icon"], 135139);
+        assert_eq!(row["classId"], 2);
+        assert_eq!(row["subclassId"], 10);
+        assert_eq!(row["equipLoc"], "INVTYPE_2HWEAPON");
+        assert_eq!(row["ahPrice"], 10313);
+        assert_eq!(row["priceTrendPct"], -12.5);
+        assert_eq!(row["disenchantValue"], 225);
+        assert_eq!(row["disenchantConfidence"], "exact");
+        assert_eq!(row["bestAction"], "ah");
+        assert_eq!(row["bestValue"], 10313);
+    }
+
+    #[test]
+    fn to_lua_sync_writes_nil_for_absent_optionals() {
+        let mut d = sample_disposal();
+        d.icon = None;
+        d.price_trend = None;
+        d.disenchant = None;
+        let lua = to_lua_sync(&[d], 0);
+        let vars = crate::lua::parse_saved_variables(&lua).expect("valid Lua");
+        let row = &vars["RosterbookOpportunitiesDB"]["rows"][0];
+        assert!(row["icon"].is_null());
+        assert!(row["priceTrendPct"].is_null());
+        assert!(row["disenchantValue"].is_null());
+    }
+
+    #[test]
+    fn to_lua_sync_caps_the_row_count() {
+        let rows: Vec<_> = (0..200).map(|i| ItemDisposal { item_id: i, ..sample_disposal() }).collect();
+        let lua = to_lua_sync(&rows, 0);
+        let vars = crate::lua::parse_saved_variables(&lua).expect("valid Lua");
+        assert_eq!(vars["RosterbookOpportunitiesDB"]["rows"].as_array().unwrap().len(), SYNC_ROW_LIMIT);
     }
 }

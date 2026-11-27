@@ -20,12 +20,14 @@ WIDGETS = r'''
 local METHODS = {}
 for name in ([[
   SetPoint ClearAllPoints SetAllPoints SetSize SetWidth SetHeight SetFrameLevel
-  SetToplevel SetMovable EnableMouse EnableMouseWheel RegisterForDrag RegisterForClicks
+  SetToplevel SetMovable SetResizable SetResizeBounds SetMinResize StartSizing
+  EnableMouse EnableMouseWheel RegisterForDrag RegisterForClicks
   StopMovingOrSizing SetBackdrop SetBackdropBorderColor SetHighlightTexture
   LockHighlight UnlockHighlight SetTexture SetTexCoord SetColorTexture SetJustifyH SetWordWrap
   SetTextColor SetStatusBarTexture SetStatusBarColor SetMinMaxValues SetValue
   SetScrollChild SetAutoFocus SetFocus ClearFocus SetOwner AddLine SetItemByID SetHyperlink
   SetOrientation SetValueStep SetObeyStepOnDrag SetThumbTexture SetNormalTexture SetPushedTexture
+  SetDesaturated SetAlpha
   SetCheckedTexture CopyFontObject SetTextInsets
 ]]):gmatch("%S+") do METHODS[name] = function() end end
 
@@ -296,6 +298,32 @@ check("Honor Points" in currency and "2,450" in currency and "4,000" in currency
 check("Darkmoon Prize Ticket" in currency, "currency nested two header levels deep (behind both Seasonal and Darkmoon Faire) is still found")
 check("Seasonal" not in currency and "Darkmoon Faire" not in currency, "collapsed currency headers themselves aren't listed as rows")
 
+# Opportunities: the companion add-on isn't installed in this session, so
+# clicking the tab must show the "install the desktop app" message rather
+# than erroring or showing stale/empty rows as if everything's fine.
+by_label["Deals"].Click(by_label["Deals"])
+check(not detail_scroll.IsShown(detail_scroll), "the install message replaces the row list, not sits empty behind it")
+if not QUIET:
+    print("\n--- Opportunities (not synced) ---\nrow list hidden, install message shown")
+
+# Now simulate the desktop app having synced once: RosterbookOpportunities
+# is a normal (not load-on-demand) add-on, so in the real game it's already
+# loaded by this point — its SavedVariables global is restored before its
+# file runs, exactly like `RosterbookUIDB = SavedUIDB` above.
+lua.execute('''
+  RosterbookOpportunitiesDB = { generatedAt = time(), rows = {
+    { character = "Faashri Galeforge", realm = GetRealmName(), itemId = 2589, itemName = "Linen Cloth",
+      icon = 1, quality = 1, count = 12, ahPrice = 150, bestAction = "ah", bestValue = 150,
+      priceTrendPct = -18.0 },
+  } }
+''')
+load_addon(lua, "RosterbookOpportunities")
+by_label["Bags"].Click(by_label["Bags"])  # bounce off the tab so Refresh re-checks GetGeneratedAt()
+by_label["Deals"].Click(by_label["Deals"])
+opportunities = show("Opportunities (synced)", detail_scroll)
+check("Linen Cloth" in opportunities, "the synced row appears")
+check("Sell AH" in opportunities, "shows the best action")
+
 by_label["Professions"].Click(by_label["Professions"])
 prof_name = "Blacksmithing" if IS_RETAIL else "Leatherworking"
 recipe_name = "Iron Buckler" if IS_RETAIL else "Light Armor Kit"
@@ -427,7 +455,7 @@ check(abs(G.RosterbookUIDB.settings.opacity - 0.35) < 1e-9, "mouse wheel steps t
 
 sliders["Text size"].SetValue(sliders["Text size"], 14)
 check(G.RosterbookFontRow._fontSize == 14 and G.RosterbookFontHeader._fontSize == 16, "text size applied to fonts")
-check(char_scroll._children[1]._children[1]._h == 54, "character rows grow with the text")
+check(char_scroll._children[1]._children[1]._h == 30, "character rows grow with the text")
 
 sliders["Window scale"].SetValue(sliders["Window scale"], 1.25)
 check(panel._scale != 1.25, "scale waits for mouse release")

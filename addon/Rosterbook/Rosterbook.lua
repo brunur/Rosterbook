@@ -636,10 +636,12 @@ handlers.TIME_PLAYED_MSG = function(total, thisLevel)
 end
 handlers.PLAYER_LOGOUT = function()
   if not me then return end
-  -- Money is already kept current by the PLAYER_MONEY event; don't re-read
-  -- GetMoney() here; a stray 0 read this late in logout would clobber the
-  -- correct saved value with nothing to gain.
-  scanXP(); scanLocation()
+  -- Money and XP are already kept current by the PLAYER_MONEY/PLAYER_XP_UPDATE/
+  -- PLAYER_UPDATE_RESTING events; don't re-read GetMoney()/scanXP() here —
+  -- UnitXPMax() can come back 0 this late in logout, clobbering the correct
+  -- saved value (xpMax = 0, confirmed in a live SavedVariables dump) with
+  -- nothing to gain.
+  scanLocation()
   if playedAt and me.played then
     local extra = math.floor(GetTime() - playedAt)
     me.played = me.played + extra

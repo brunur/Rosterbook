@@ -23,6 +23,17 @@ pub const DISENCHANT_FILES: &[(&str, &str)] = &[
     ("RosterbookDisenchant.lua", include_str!("../../../addon/RosterbookDisenchant/RosterbookDisenchant.lua")),
 ];
 
+/// Holds the AH/disenchant opportunity ranking the desktop app writes to its
+/// SavedVariables file, for the `Rosterbook_UI` Opportunities tab to read —
+/// installed alongside the core add-on the same way `RosterbookDisenchant`
+/// is, since it's useless without the desktop app behind it.
+pub const OPPORTUNITIES_FOLDER: &str = "RosterbookOpportunities";
+
+pub const OPPORTUNITIES_FILES: &[(&str, &str)] = &[
+    ("RosterbookOpportunities.toc", include_str!("../../../addon/RosterbookOpportunities/RosterbookOpportunities.toc")),
+    ("RosterbookOpportunities.lua", include_str!("../../../addon/RosterbookOpportunities/RosterbookOpportunities.lua")),
+];
+
 /// Version of the add-on bundled with this build of the app.
 pub fn bundled_version() -> String {
     toc_version(FILES[0].1).unwrap_or_else(|| "unknown".into())
@@ -102,6 +113,12 @@ pub fn install(flavor_dir: &Path) -> anyhow::Result<String> {
 /// its own (nothing in the app checks it's current), it's just copied in.
 pub fn install_disenchant(flavor_dir: &Path) -> anyhow::Result<()> {
     install_files(flavor_dir, DISENCHANT_FOLDER, DISENCHANT_FILES)
+}
+
+/// Installs or updates the opportunities-sync add-on. Same best-effort
+/// shape as `install_disenchant`.
+pub fn install_opportunities(flavor_dir: &Path) -> anyhow::Result<()> {
+    install_files(flavor_dir, OPPORTUNITIES_FOLDER, OPPORTUNITIES_FILES)
 }
 
 fn install_files(flavor_dir: &Path, folder: &str, files: &[(&str, &str)]) -> anyhow::Result<()> {
@@ -205,5 +222,16 @@ mod tests {
         let dir = flavor.join("Interface").join("AddOns").join(DISENCHANT_FOLDER);
         assert!(dir.join("RosterbookDisenchant.toc").is_file());
         assert!(dir.join("RosterbookDisenchant.lua").is_file());
+    }
+
+    #[test]
+    fn installs_the_opportunities_addon_alongside_the_core_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        let flavor = tmp.path().join("_retail_");
+        std::fs::create_dir_all(flavor.join("WTF")).unwrap();
+        install_opportunities(&flavor).unwrap();
+        let dir = flavor.join("Interface").join("AddOns").join(OPPORTUNITIES_FOLDER);
+        assert!(dir.join("RosterbookOpportunities.toc").is_file());
+        assert!(dir.join("RosterbookOpportunities.lua").is_file());
     }
 }

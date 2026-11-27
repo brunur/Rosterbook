@@ -209,6 +209,28 @@ impl Inner {
         }
     }
 
+    /// Writes the current opportunity ranking into the `RosterbookOpportunities`
+    /// add-on's own SavedVariables file, so the in-game Opportunities tab has
+    /// something to show at the player's next login/reload — the only way
+    /// data can reach a WoW add-on from outside the game process. Best-effort:
+    /// no game folder for this id, or the write itself failing, just means
+    /// the tab keeps showing its last synced snapshot (or the "not synced
+    /// yet" message), not a hard error.
+    pub async fn sync_opportunities_addon(self: &Arc<Self>, id: &str) {
+        let Some(sv_dir) = self.settings.read().await.games.iter().find(|g| g.id == id).map(|g| g.saved_variables_dir.clone()) else {
+            return;
+        };
+        let rows = compute_opportunities(self, id, sv_dir.clone()).await;
+        let ts = now();
+        let result = tokio::task::spawn_blocking(move || {
+            std::fs::write(sv_dir.join("RosterbookOpportunities.lua"), opportunities::to_lua_sync(&rows, ts))
+        })
+        .await;
+        if let Ok(Err(e)) = result {
+            eprintln!("Couldn't sync opportunities to the add-on: {e}");
+        }
+    }
+
     /// If item pictures are on, fetches any this game now needs, in the background.
     async fn queue_icons(self: &Arc<Self>, id: &str) {
         let flavor_dir = {
@@ -234,6 +256,7 @@ impl Inner {
         for id in ids {
             self.reload_game(&id).await;
             self.capture_prices(&id).await;
+            self.sync_opportunities_addon(&id).await;
         }
         self.rewatch().await;
     }
@@ -644,6 +667,8 @@ async fn install_addon(Extension(role): Extension<Role>, Json(body): Json<Instal
         Ok(Ok(version)) => {
             let dir = body.flavor_dir.clone();
             let _ = tokio::task::spawn_blocking(move || addon::install_disenchant(&dir)).await;
+            let dir = body.flavor_dir.clone();
+            let _ = tokio::task::spawn_blocking(move || addon::install_opportunities(&dir)).await;
             Json(json!({ "installed": version })).into_response()
         }
         Ok(Err(e)) => err(StatusCode::BAD_REQUEST, e.to_string()),
@@ -698,6 +723,8 @@ async fn answer_suggestion(
             Ok(Ok(_)) => {
                 let dir = sug.flavor_dir.clone();
                 let _ = tokio::task::spawn_blocking(move || addon::install_disenchant(&dir)).await;
+                let dir = sug.flavor_dir.clone();
+                let _ = tokio::task::spawn_blocking(move || addon::install_opportunities(&dir)).await;
             }
             Ok(Err(e)) => return err(StatusCode::BAD_REQUEST, e.to_string()),
             Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
@@ -789,9 +816,23 @@ async fn get_profit(State(s): State<AppState>, Extension(role): Extension<Role>,
 }
 
 /// What to do with items already sitting in bags/bank — vendor, AH, or
-/// disenchant — ranked by best known value. Reads the disenchant add-on's
-/// learned yields the same way `get_profit` reads AH prices: an account
-/// with none shows an empty list rather than an error.
+/// disenchant — ranked by best known value. Shared by the HTTP endpoint and
+/// the in-game Opportunities tab's sync file (`Inner::sync_opportunities_addon`),
+/// so there's one place that gathers prices/disenchant-data/history instead
+/// of a third near-copy of `get_profit`'s lookup. An account with no priced
+/// data at all gets an empty list rather than an error.
+async fn compute_opportunities(s: &AppState, id: &str, sv_dir: PathBuf) -> Vec<opportunities::ItemDisposal> {
+    let Some(data) = s.games.read().await.get(id).cloned() else {
+        return Vec::new();
+    };
+    let prices_by_realm = load_prices(sv_dir.clone()).await;
+    let disenchant_data =
+        tokio::task::spawn_blocking(move || disenchant::load_disenchant_data(&sv_dir)).await.unwrap_or_default();
+    let (history_dir, id) = (s.history_dir.clone(), id.to_string());
+    let history = tokio::task::spawn_blocking(move || ah::history::load(&history_dir, &id)).await.unwrap_or_default();
+    opportunities::rank_disposals(&data, &disenchant_data, &prices_by_realm, &history, now())
+}
+
 async fn get_opportunities(State(s): State<AppState>, Extension(role): Extension<Role>, UrlPath(game): UrlPath<String>) -> Response {
     if let Err(r) = need_view(&role) {
         return r;
@@ -799,15 +840,7 @@ async fn get_opportunities(State(s): State<AppState>, Extension(role): Extension
     let Some(sv_dir) = s.settings.read().await.games.iter().find(|g| g.id == game).map(|g| g.saved_variables_dir.clone()) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let Some(data) = s.games.read().await.get(&game).cloned() else {
-        return Json(json!([])).into_response();
-    };
-    let prices_by_realm = load_prices(sv_dir.clone()).await;
-    let disenchant_data =
-        tokio::task::spawn_blocking(move || disenchant::load_disenchant_data(&sv_dir)).await.unwrap_or_default();
-    let history_dir = s.history_dir.clone();
-    let history = tokio::task::spawn_blocking(move || ah::history::load(&history_dir, &game)).await.unwrap_or_default();
-    Json(opportunities::rank_disposals(&data, &disenchant_data, &prices_by_realm, &history, now())).into_response()
+    Json(compute_opportunities(&s, &game, sv_dir).await).into_response()
 }
 
 /// A cached item picture. Paths come only from the cache, never from the request.

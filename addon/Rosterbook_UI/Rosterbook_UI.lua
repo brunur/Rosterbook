@@ -36,6 +36,17 @@ local cfg
 -- Text size the game uses for small text (varies by client and locale).
 local BASE_FONT_SIZE = math.floor(select(2, GameFontHighlightSmall:GetFont()) + 0.5)
 
+-- Default and minimum window size. Dragging the resize grip can grow it
+-- past WIDTH/HEIGHT, down to MIN_WIDTH/MIN_HEIGHT; the chosen size is saved
+-- in cfg.size and restored next time.
+local WIDTH, HEIGHT = 800, 480
+local MIN_WIDTH, MIN_HEIGHT = 620, 360
+-- The character-list column's own width works the same way: DEFAULT_LIST_W
+-- to start, draggable via the split grip between MIN_LIST_W and whatever
+-- leaves the right-hand pane at least MIN_DETAIL_W, saved in cfg.listW.
+local DEFAULT_LIST_W = 400
+local MIN_LIST_W, MIN_DETAIL_W = 200, 260
+
 local DEFAULTS = {
   opacity = 0.95,        -- background only; text and borders stay solid
   scale = 1.0,
@@ -47,6 +58,7 @@ local DEFAULTS = {
   thisRealmOnly = false,
   borderStyle = "None",  -- LibSharedMedia border name, or "None" for the flat built-in look
   fontStyle = "Default", -- LibSharedMedia font name, or "Default" for the game's own font
+  statusbarStyle = "Default", -- LibSharedMedia statusbar name, or "Default" for the stock Blizzard texture
   useEUISkin = true,     -- match EllesmereUI's look when that add-on is installed
 }
 
@@ -55,6 +67,8 @@ local function loadSettings()
   cfg = RosterbookUIDB
   cfg.sort = cfg.sort or "level"
   cfg.tab = cfg.tab or "overview"
+  cfg.size = cfg.size or { WIDTH, HEIGHT }
+  cfg.listW = cfg.listW or DEFAULT_LIST_W
   -- "settings" is a popover, not a tab; "find" was folded into a standalone
   -- search bar in a later version. "professions" used to be folded into
   -- Overview too, but it's back as its own tab (with recipes).
@@ -78,9 +92,38 @@ Fonts.header:CopyFontObject(GameFontNormal)
 Fonts.title:CopyFontObject(GameFontNormalLarge)
 
 -- Right-edge x offsets (from the row's own right edge) for the character
--- list's RXP and Gold columns, shared by the rows and their header labels
--- so the two line up regardless of either column's text width.
-local GOLD_COL_X, RXP_COL_X = -4, -56
+-- list's columns — all vertically centred on one line, left to right: class
+-- icon, name, Level, profession icons, RXP, Gold, Mail. Shared by the rows
+-- and their header labels so they all line up regardless of any one
+-- column's text width.
+local MAIL_COL_X, GOLD_COL_X, RXP_COL_X = -4, -26, -80
+-- Up to PROF_MAX profession-icon slots, between Level and RXP. PROF_COL_X[1]
+-- is rightmost (closest to RXP), PROF_COL_X[PROF_MAX] leftmost (closest to
+-- Level).
+local PROF_ICON_SIZE, PROF_MAX = 14, 4
+local PROF_COL_X = {}
+for i = 1, PROF_MAX do PROF_COL_X[i] = -126 - (i - 1) * (PROF_ICON_SIZE + 2) end
+-- Level sits right after the name (the rested-icon badge chains dynamically
+-- off it, so it sits just to the level's left).
+local LEVEL_COL_X = PROF_COL_X[PROF_MAX] - 32
+-- Fixed right edge for a row's optional action label (e.g. "Sell AH" /
+-- "Disenchant" on the Deals tab) — anchoring it here, not to `right`'s own
+-- width, keeps the value column flush regardless of label length.
+local RIGHT_LABEL_COL_X = -100
+
+-- Per-class whole-icon files, one plain texture each — no texcoord grid
+-- math, the same kind of icon (and the same default 0.07-0.93 crop set on
+-- row.icon at creation) item rows already use and render fine, to rule that
+-- out as a cause if the circle+texcoord version was ever the real problem.
+local CLASS_ICON_FILE = {
+  WARRIOR = "Interface\\Icons\\ClassIcon_Warrior", MAGE = "Interface\\Icons\\ClassIcon_Mage",
+  ROGUE = "Interface\\Icons\\ClassIcon_Rogue", DRUID = "Interface\\Icons\\ClassIcon_Druid",
+  HUNTER = "Interface\\Icons\\ClassIcon_Hunter", SHAMAN = "Interface\\Icons\\ClassIcon_Shaman",
+  PRIEST = "Interface\\Icons\\ClassIcon_Priest", WARLOCK = "Interface\\Icons\\ClassIcon_Warlock",
+  PALADIN = "Interface\\Icons\\ClassIcon_Paladin", DEATHKNIGHT = "Interface\\Icons\\ClassIcon_DeathKnight",
+  MONK = "Interface\\Icons\\ClassIcon_Monk", DEMONHUNTER = "Interface\\Icons\\ClassIcon_DemonHunter",
+  EVOKER = "Interface\\Icons\\ClassIcon_Evoker",
+}
 
 -- Row geometry follows the text size (these are the sizes at 10pt).
 local Metrics = {}
@@ -98,9 +141,26 @@ local function applyFonts(size, fontPath)
   local d = size - 10
   Metrics.header, Metrics.text, Metrics.item, Metrics.bar, Metrics.space = 24 + d, 18 + d, 20 + d, 22 + d, 8
   Metrics.icon, Metrics.barHeight, Metrics.barLeft = 16 + d, 14 + d, 150 + d * 8
-  Metrics.character = 2 * (18 + d) + 10
+  -- Single reading line now (icon, name, level, RXP, gold, mail all on one
+  -- row) rather than a two-line card, so this only needs to fit the icon.
+  Metrics.character = 26 + d
 end
 applyFonts(BASE_FONT_SIZE)
+
+-- ---------------------------------------------------------------------------
+-- Status bars: unlike fonts, there's no single shared object to repoint, so
+-- each bar created via `registerStatusBar` is tracked here and re-textured
+-- individually whenever the setting changes (see `applySettings`).
+-- ---------------------------------------------------------------------------
+local StatusBars = {}
+local function statusBarTexture()
+  return (LSM and cfg.settings.statusbarStyle ~= "Default" and LSM:Fetch("statusbar", cfg.settings.statusbarStyle))
+    or "Interface\\TargetingFrame\\UI-StatusBar"
+end
+local function registerStatusBar(bar)
+  StatusBars[#StatusBars + 1] = bar
+  bar:SetStatusBarTexture(statusBarTexture())
+end
 
 -- ---------------------------------------------------------------------------
 -- Formatting helpers
@@ -193,19 +253,68 @@ local function lastPlayed(c)
   return c.lastLogout or c.lastUpdate or 0
 end
 
-local function hasRestBonus(c)
-  if c.maxLevel or c.xpDisabled or not c.xpMax or c.xpMax == 0 then return false end
-  return (c.restXP or 0) > 0
+-- Rested XP accrues while logged out too (8 h in an inn = 5 % of a level,
+-- a quarter of that rate elsewhere), capped at 150 % of a level. The saved
+-- value is only as fresh as a character's last logout, so this estimates
+-- what it's grown to by now — the roster list keeps climbing for every
+-- alt, not just whichever one you're actually playing.
+local REST_TICK = 28800
+local function restNow(c)
+  local max = c.xpMax or 0
+  if c.maxLevel or c.xpDisabled or max <= 0 then return 0 end
+  local cap = max * 1.5
+  local since = math.max(0, time() - lastPlayed(c))
+  local earned = since / REST_TICK * (max / 20)
+  if not c.resting then earned = earned / 4 end
+  return math.min(cap, (c.restXP or 0) + earned)
 end
 
+local function hasRestBonus(c) return restNow(c) > 0 end
+
 local function hasMail(c) return c.mail and (c.mail.count or 0) > 0 end
+
+-- Standard Blizzard trade icons, keyed by the profession name GetProfessionInfo
+-- returns (locale-dependent like everything else scanned, but these are the
+-- game's own English skill-line names, which is what's actually saved).
+local PROFESSION_ICON = {
+  Alchemy = "Interface\\Icons\\Trade_Alchemy", Blacksmithing = "Interface\\Icons\\Trade_BlackSmithing",
+  Enchanting = "Interface\\Icons\\Trade_Engraving", Engineering = "Interface\\Icons\\Trade_Engineering",
+  Herbalism = "Interface\\Icons\\Trade_Herbalism", Inscription = "Interface\\Icons\\INV_Inscription_Tradeskill01",
+  Jewelcrafting = "Interface\\Icons\\INV_Misc_Gem_01", Leatherworking = "Interface\\Icons\\Trade_LeatherWorking",
+  Mining = "Interface\\Icons\\Trade_Mining", Skinning = "Interface\\Icons\\INV_Misc_Pelt_Wolf_01",
+  Tailoring = "Interface\\Icons\\Trade_Tailoring",
+  -- Secondary.
+  Cooking = "Interface\\Icons\\INV_Misc_Food_15", Fishing = "Interface\\Icons\\Trade_Fishing",
+  ["First Aid"] = "Interface\\Icons\\Spell_Holy_SealOfSacrifice",
+  Archaeology = "Interface\\Icons\\INV_Misc_Archaeology_75",
+}
+
+-- Up to PROF_MAX profession icons, primary professions first (there are at
+-- most two) then secondary, in the order they're stored — short by however
+-- many the character hasn't picked up (or this build doesn't have an icon
+-- for) of PROF_MAX.
+local function profIcons(c)
+  local primary, secondary = {}, {}
+  for _, p in ipairs(c.professions or {}) do
+    local tex = PROFESSION_ICON[p.name]
+    if tex then
+      local bucket = p.kind == "primary" and primary or secondary
+      bucket[#bucket + 1] = tex
+    end
+  end
+  local icons = {}
+  for _, tex in ipairs(primary) do icons[#icons + 1] = tex end
+  for _, tex in ipairs(secondary) do icons[#icons + 1] = tex end
+  return icons
+end
 
 -- Rested XP as a percentage of the XP needed for the next level (what the
 -- in-game rested bar itself measures against) — "—" when there's no rest
 -- bonus (including a max-level or XP-disabled character).
 local function restPctText(c)
-  if not hasRestBonus(c) then return "—" end
-  return math.floor(c.restXP / c.xpMax * 100 + 0.5) .. "%"
+  local now = restNow(c)
+  if now <= 0 then return "—" end
+  return math.floor(now / c.xpMax * 100 + 0.5) .. "%"
 end
 
 -- Used/total bag slots across every carried bag (for the Bags tab label).
@@ -273,6 +382,23 @@ local function setBackdrop(f, alpha)
   })
   f:SetBackdropColor(THEME.bg[1], THEME.bg[2], THEME.bg[3], alpha or 0.96)
   f:SetBackdropBorderColor(THEME.border[1], THEME.border[2], THEME.border[3], 1)
+end
+
+-- A read-only, single-line text field the player can click into and
+-- Ctrl+C — the standard add-on idiom for "here's a link", since there's no
+-- clipboard API and chat can't reliably hold an arbitrary URL as a link.
+local function urlBox(parent, text)
+  local b = tryCreate("EditBox", nil, parent, "InputBoxTemplate")
+  b:SetHeight(26)
+  b:SetAutoFocus(false)
+  b:SetText(text)
+  b:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  b:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  b:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+  -- Typing would just corrupt the one thing this box exists to show.
+  b:SetScript("OnChar", function(self) self:SetText(text); self:HighlightText() end)
+  if EUI_Skin then EUI_Skin.EditBox(b, { padInput = true }) end
+  return b
 end
 
 -- A flat, borderless-background button — built by hand instead of from
@@ -361,6 +487,14 @@ local function rowList(parent, rowWidth)
     row.right:SetJustifyH("RIGHT")
     row.right:SetPoint("RIGHT", -4, 0)
 
+    -- A second right-aligned field anchored off `right`'s own left edge, for
+    -- rows like the Deals tab's "Sell AH"/"Disenchant" label — its right
+    -- edge, not `right`'s, stays in a straight column regardless of each
+    -- row's value width.
+    row.rightLabel = row:CreateFontString(nil, "OVERLAY")
+    row.rightLabel:SetFontObject(Fonts.row)
+    row.rightLabel:SetJustifyH("RIGHT")
+
     row.subtitle = row:CreateFontString(nil, "OVERLAY")
     row.subtitle:SetFontObject(Fonts.row)
     row.subtitle:SetJustifyH("LEFT")
@@ -371,6 +505,15 @@ local function rowList(parent, rowWidth)
     row.rxp = row:CreateFontString(nil, "OVERLAY")
     row.rxp:SetFontObject(Fonts.row)
     row.rxp:SetJustifyH("RIGHT")
+
+    row.profIcons = {}
+    for i = 1, PROF_MAX do
+      local t = row:CreateTexture(nil, "ARTWORK")
+      t:SetSize(PROF_ICON_SIZE, PROF_ICON_SIZE)
+      t:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+      t:Hide()
+      row.profIcons[i] = t
+    end
 
     row.restIcon = row:CreateTexture(nil, "OVERLAY")
     row.restIcon:SetSize(14, 14)
@@ -384,7 +527,7 @@ local function rowList(parent, rowWidth)
     row.mailIcon:Hide()
 
     row.bar = CreateFrame("StatusBar", nil, row)
-    row.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    registerStatusBar(row.bar)
     row.bar:SetHeight(14)
     row.bar.bg = row.bar:CreateTexture(nil, "BACKGROUND")
     row.bar.bg:SetAllPoints()
@@ -439,30 +582,56 @@ local function rowList(parent, rowWidth)
       row.rxp:ClearAllPoints()
 
       if kind == "character" then
-        -- Two-line card: name + class/race on top, level and RXP/gold columns
-        -- stacked right. RXP and Gold each anchor their own right edge at a
-        -- fixed offset (not to each other) so the two columns stay aligned
-        -- down the list regardless of how wide either value's text is.
-        row.icon:Hide()
-        row.text:SetPoint("TOPLEFT", indent, -4)
-        row.text:SetPoint("RIGHT", row, "RIGHT", -62, 0)
-        row.subtitle:SetPoint("BOTTOMLEFT", indent, 4)
-        row.subtitle:SetText(spec.subtitle or "")
-        row.subtitle:SetTextColor(0.6, 0.64, 0.72)
-        row.subtitle:Show()
+        -- One reading line, left to right: class icon, name, level, RXP,
+        -- gold, mail. Level/RXP/Gold/Mail each anchor their own right edge
+        -- at a fixed offset (not to each other, and not top/bottom of a
+        -- two-line card like before) so all four stay in straight columns,
+        -- vertically centred with the name, regardless of any one column's
+        -- text width.
+        local iconSize = Metrics.character - 2
+        row.icon:SetSize(iconSize, iconSize)
+        row.icon:SetPoint("LEFT", indent, 0)
+        local tex = spec.classToken and CLASS_ICON_FILE[spec.classToken]
+        if tex then
+          row.icon:SetTexture(tex)
+          row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+          row.icon:Show()
+        else
+          row.icon:Hide()
+        end
+        local textIndent = tex and (indent + iconSize + 6) or indent
+        row.text:SetPoint("LEFT", textIndent, 0)
+        row.text:SetPoint("RIGHT", row, "RIGHT", LEVEL_COL_X - 10, 0)
+        row.subtitle:Hide()
         row.right:ClearAllPoints()
-        row.right:SetPoint("TOPRIGHT", -4, -4)
-        row.rightBottom:SetPoint("BOTTOMRIGHT", GOLD_COL_X, 4)
+        row.right:SetPoint("RIGHT", LEVEL_COL_X, 0)
+        row.rightBottom:SetPoint("RIGHT", GOLD_COL_X, 0)
         row.rightBottom:SetText(spec.rightBottom or "")
         row.rightBottom:Show()
-        row.rxp:SetPoint("BOTTOMRIGHT", RXP_COL_X, 4)
+        row.rxp:SetPoint("RIGHT", RXP_COL_X, 0)
         row.rxp:SetText(spec.rxp or "")
         row.rxp:SetTextColor(0.55, 0.75, 1)
         row.rxp:Show()
+        row.rightLabel:Hide()
+        row.mailIcon:ClearAllPoints()
+        row.mailIcon:SetPoint("RIGHT", MAIL_COL_X, 0)
+        if spec.mail then row.mailIcon:Show() else row.mailIcon:Hide() end
+        for i = 1, PROF_MAX do
+          local t, tex2 = row.profIcons[i], spec.profIcons and spec.profIcons[i]
+          t:ClearAllPoints()
+          if tex2 then
+            t:SetPoint("RIGHT", PROF_COL_X[i], 0)
+            t:SetTexture(tex2)
+            t:Show()
+          else
+            t:Hide()
+          end
+        end
       else
         row.subtitle:Hide()
         row.rightBottom:Hide()
         row.rxp:Hide()
+        for i = 1, PROF_MAX do row.profIcons[i]:Hide() end
         if spec.icon then
           row.icon:SetTexture(spec.icon)
           if spec.iconCoords then row.icon:SetTexCoord(unpack(spec.iconCoords))
@@ -476,6 +645,15 @@ local function rowList(parent, rowWidth)
         end
         row.right:ClearAllPoints()
         row.right:SetPoint("RIGHT", -4, 0)
+        row.rightLabel:ClearAllPoints()
+        if spec.rightLabel then
+          row.rightLabel:SetPoint("RIGHT", RIGHT_LABEL_COL_X, 0)
+          row.rightLabel:SetText(spec.rightLabel)
+          row.rightLabel:SetTextColor(0.6, 0.64, 0.72)
+          row.rightLabel:Show()
+        else
+          row.rightLabel:Hide()
+        end
       end
       row.text:SetText(spec.text or "")
       row.text:SetTextColor(spec.r or 1, spec.g or 1, spec.b or 1)
@@ -489,7 +667,9 @@ local function rowList(parent, rowWidth)
         tex:Show()
         badgeAnchor = tex
       end
-      placeBadge(row.mailIcon, spec.mail)
+      -- Character rows already anchored row.mailIcon to its own fixed
+      -- column above; everywhere else it still chains off row.right.
+      if kind ~= "character" then placeBadge(row.mailIcon, spec.mail) end
       placeBadge(row.restIcon, spec.rested)
 
       if kind == "bar" and spec.bar then
@@ -509,7 +689,9 @@ local function rowList(parent, rowWidth)
       else
         row.bar:Hide()
         row.right:Show()
-        if kind ~= "character" then row.text:SetPoint("RIGHT", row.right, "LEFT", -8, 0) end
+        if kind ~= "character" then
+          row.text:SetPoint("RIGHT", spec.rightLabel and row.rightLabel or row.right, "LEFT", -8, 0)
+        end
       end
       if spec.selected then row.sel:Show() else row.sel:Hide() end
       if spec.barColor then
@@ -526,6 +708,12 @@ local function rowList(parent, rowWidth)
     for i = #specs + 1, #rows do rows[i]:Hide(); rows[i].spec = nil end
     child:SetHeight(math.max(1, y))
     if not keepScroll then scroll:SetVerticalScroll(0) end
+  end
+
+  function api.SetWidth(w)
+    rowWidth = w
+    child:SetWidth(w)
+    for _, row in ipairs(rows) do row:SetWidth(w) end
   end
 
   api.scroll = scroll
@@ -730,6 +918,11 @@ local function sectionList(parent, width)
     if not keepScroll then scroll:SetVerticalScroll(0) end
   end
 
+  function api.SetWidth(w)
+    width = w
+    child:SetWidth(w)
+  end
+
   api.scroll = scroll
   return api
 end
@@ -746,10 +939,10 @@ end
 local function bar(label, value, lo, hi, text, r, g, b, tooltip)
   return { kind = "bar", text = label, bar = { value = value, min = lo, max = hi, label = text, r = r, g = g, b = b }, tooltip = tooltip }
 end
-local function itemRow(item, right, indent)
+local function itemRow(item, right, indent, rightLabel)
   local r, g, b = qualityColor(item.quality)
   return { kind = "item", icon = itemIcon(item), text = item.name or ("Item " .. tostring(item.id)),
-           right = right, r = r, g = g, b = b, itemId = item.id, indent = indent }
+           right = right, rightLabel = rightLabel, r = r, g = g, b = b, itemId = item.id, indent = indent }
 end
 
 -- Stat-card grid shown above the overview tab's row list.
@@ -955,6 +1148,31 @@ Tabs.currency = function(c)
   return rows
 end
 
+-- Account-wide, not per-character like the other tabs — the desktop app's
+-- own ranking already spans every character, and a copy filtered to just
+-- whichever one is selected would be a strictly worse view of the same
+-- data. `RosterbookOpportunities` is nil until the companion add-on is
+-- installed; its SavedVariables table is empty until the desktop app has
+-- synced at least once — `Panel.Refresh` shows the "install it" message
+-- for that case instead of calling this.
+Tabs.opportunities = function()
+  local rows = {}
+  for _, r in ipairs(RosterbookOpportunities.GetRows()) do
+    local actionLabel = r.bestAction == "disenchant" and "Disenchant" or "Sell AH"
+    local tooltip = { r.itemName, r.character }
+    if r.priceTrendPct then
+      local pct = math.floor(math.abs(r.priceTrendPct) + 0.5)
+      if pct >= 5 then tooltip[#tooltip + 1] = pct .. "% " .. (r.priceTrendPct < 0 and "below" or "above") .. " its recent average" end
+    end
+    local row = itemRow({ id = r.itemId, name = r.itemName, icon = r.icon, quality = r.quality },
+      money(r.bestValue), nil, actionLabel)
+    row.tooltip = tooltip
+    rows[#rows + 1] = row
+  end
+  if #rows == 0 then rows[1] = line("Nothing worth selling found yet.", "") end
+  return rows
+end
+
 -- Cross-character item search: every character's gear, bags and bank, plus
 -- the Warband bank, matched by item name.
 local function findItems(query)
@@ -1024,12 +1242,12 @@ local TAB_ORDER = {
   { key = "professions", label = "Professions" },
   { key = "reputation", label = "Reputation" },
   { key = "currency", label = "Currency" },
+  { key = "opportunities", label = "Deals" },
 }
 
 -- ---------------------------------------------------------------------------
 -- Window
 -- ---------------------------------------------------------------------------
-local WIDTH, HEIGHT, LIST_W = 800, 480, 236
 -- Right-pane vertical layout: name/gold, then subtitle/last-seen, then the
 -- level/XP bar, then the tab row, then each tab's content — same order as
 -- the desktop app.
@@ -1037,6 +1255,12 @@ local TITLE_TOP, TABS_TOP, CONTENT_TOP = -44, -132, -166
 local frame, charList, detail, detailGrid, detailTitle, detailSub, detailGold, detailLastSeen, progressBar,
       tabButtons, findBox, findHint, sortButton, totalText, overviewGrid
 local settingsView, settingsButton
+local oppInstallMsg
+-- Bundled into one table (one upvalue) rather than five separate locals —
+-- build() is already a very large closure, and Lua 5.1 caps a function at
+-- 60 upvalues; each extra top-level local referenced inside it counts.
+local listCol = {}
+local listW = DEFAULT_LIST_W
 local selected
 local lastTab = "overview"
 
@@ -1078,13 +1302,13 @@ function Panel.Refresh(keepScroll)
     local tooltip = { c.name, ("Level %s %s %s"):format(c.level or "?", c.race or "", c.class or ""),
                        (c.realm or "") .. (c.faction and (" — " .. c.faction) or ""),
                        isMe and "Playing now" or ("Last played " .. ago(lastPlayed(c))) }
-    if hasRestBonus(c) then tooltip[#tooltip + 1] = "+" .. c.restXP .. " rested XP" end
+    if hasRestBonus(c) then tooltip[#tooltip + 1] = "+" .. math.floor(restNow(c)) .. " rested XP" end
     if hasMail(c) then
       tooltip[#tooltip + 1] = c.mail.count .. " item" .. (c.mail.count == 1 and "" or "s") .. " in the mailbox"
     end
     specs[#specs + 1] = {
       kind = "character", text = c.name .. (isMe and GREY .. " (you)|r" or ""), r = r, g = g, b = b,
-      subtitle = GREY .. (c.race or "") .. " " .. (c.class or "") .. "|r",
+      classToken = c.classToken, profIcons = profIcons(c),
       right = WHITE .. (c.level or "?") .. "|r", rightBottom = goldShort(c.money), rxp = restPctText(c),
       selected = c.guid == selected, barColor = { r, g, b },
       rested = hasRestBonus(c), mail = hasMail(c),
@@ -1149,7 +1373,7 @@ function Panel.Refresh(keepScroll)
     detailTitle:SetText("Find an item")
     detailSub:SetText(GREY .. "Across every character's gear, bags and bank" .. (wb and ", and the Warband bank" or "") .. ". Shift-click an item to link it.|r")
     detail.scroll:ClearAllPoints()
-    detail.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", LIST_W + 28, CONTENT_TOP)
+    detail.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
     detail.scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -32, 14)
     detail.SetRows(findItems(query), keepScroll)
     return
@@ -1163,7 +1387,7 @@ function Panel.Refresh(keepScroll)
     detailLastSeen:SetText("")
     detail.scroll:Show()
     detail.scroll:ClearAllPoints()
-    detail.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", LIST_W + 28, CONTENT_TOP)
+    detail.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
     detail.scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -32, 14)
     detailTitle:SetText("No characters yet")
     detailSub:SetText("")
@@ -1176,19 +1400,32 @@ function Panel.Refresh(keepScroll)
   detailGold:SetText(money(current.money))
   detailLastSeen:SetText(GREY .. "Last seen " .. (current.guid == API.GetCurrentGUID() and "now" or ago(lastPlayed(current))) .. "|r")
 
+  if cfg.tab == "opportunities" and not (RosterbookOpportunities and RosterbookOpportunities.GetGeneratedAt()) then
+    overviewGrid.frame:Hide()
+    detailGrid.scroll:Hide()
+    detail.scroll:Hide()
+    oppInstallMsg:Show()
+    local _, _, _, hex = classColor(current.classToken)
+    detailTitle:SetText("|c" .. hex .. current.name .. "|r")
+    detailSub:SetText(("Level %s %s %s  " .. GREY .. "%s%s|r"):format(current.level or "?", current.race or "", current.class or "",
+      current.realm or "", current.faction and (" — " .. current.faction) or ""))
+    return
+  end
+  oppInstallMsg:Hide()
+
   local GRID_TABS = { gear = true, bags = true, bank = true }
   if GRID_TABS[cfg.tab] then
     overviewGrid.frame:Hide()
     detail.scroll:Hide()
     detailGrid.scroll:Show()
     detailGrid.scroll:ClearAllPoints()
-    detailGrid.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", LIST_W + 28, CONTENT_TOP)
+    detailGrid.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
     detailGrid.scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -32, 14)
     detailGrid.SetSections(Tabs[cfg.tab](current), keepScroll)
   elseif cfg.tab == "overview" then
     detailGrid.scroll:Hide()
     detail.scroll:Show()
-    overviewGrid.SetTiles(overviewTiles(current), WIDTH - LIST_W - 60)
+    overviewGrid.SetTiles(overviewTiles(current), frame:GetWidth() - listW - 60)
     overviewGrid.frame:Show()
     detail.scroll:ClearAllPoints()
     detail.scroll:SetPoint("TOPLEFT", overviewGrid.frame, "BOTTOMLEFT", 0, -14)
@@ -1199,7 +1436,7 @@ function Panel.Refresh(keepScroll)
     overviewGrid.frame:Hide()
     detail.scroll:Show()
     detail.scroll:ClearAllPoints()
-    detail.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", LIST_W + 28, CONTENT_TOP)
+    detail.scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
     detail.scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -32, 14)
     detail.SetRows((Tabs[cfg.tab] or Tabs.overview)(current), keepScroll)
   end
@@ -1334,6 +1571,8 @@ local function applySettings()
     or (EUI_Skin and EUI_Skin.GetFont())
     or nil
   applyFonts(o.fontSize, fontPath)
+  local barTexture = statusBarTexture()
+  for _, bar in ipairs(StatusBars) do bar:SetStatusBarTexture(barTexture) end
   if not frame then return end
   -- EllesmereUI already painted the window's backdrop/border via S.Shell;
   -- don't fight it with our own flat or LibSharedMedia border.
@@ -1449,7 +1688,7 @@ end
 
 local function buildSettingsView()
   local v = CreateFrame("Frame", nil, frame)
-  v:SetPoint("TOPLEFT", frame, "TOPLEFT", LIST_W + 30, -110)
+  v:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 30, -110)
   v:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -20, 14)
   v:Hide()
   local o = function() return cfg.settings end
@@ -1531,6 +1770,22 @@ local function buildSettingsView()
   fontLabel:SetText("Font")
   add({ Sync = function() fontBtn.fs:SetText(o().fontStyle) end })
 
+  local statusbarBtn = dropdown(v, 210, 10, function() return mediaList("statusbar", "Default") end, function(name)
+    o().statusbarStyle = name
+    applySettings()
+    v.Sync()
+  end)
+  statusbarBtn:SetPoint("TOPLEFT", 0, -328)
+  statusbarBtn:SetScript("OnEnter", function(self)
+    showTooltip(self, "Status bar", "The texture used for XP and rest bars. Shows anything another add-on has registered with LibSharedMedia, such as an ElvUI or kkthnxUI statusbar.")
+  end)
+  statusbarBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  local statusbarLabel = v:CreateFontString(nil, "OVERLAY")
+  statusbarLabel:SetFontObject(GameFontHighlightSmall)
+  statusbarLabel:SetPoint("BOTTOMLEFT", statusbarBtn, "TOPLEFT", 2, 3)
+  statusbarLabel:SetText("Status bar")
+  add({ Sync = function() statusbarBtn.fs:SetText(o().statusbarStyle) end })
+
   -- Right column: behaviour
   local x = 250
   heading("Behaviour", x, 0)
@@ -1590,8 +1845,56 @@ local function savePosition()
   cfg.point = { point, relPoint, x, y }
 end
 
+-- Re-fits the right-pane content (which has an explicit pixel width, unlike
+-- the left character list) to the frame's current size. Called after the
+-- frame itself resizes, live while dragging the resize grip.
+local reflowPending = false
+local function reflow()
+  if not frame then return end
+  local w = math.max(1, frame:GetWidth() - listW - 60)
+  detail.SetWidth(w)
+  detailGrid.SetWidth(w)
+  Panel.Refresh(true)
+end
+
+-- Re-anchors everything whose x position depends on listW: the character
+-- list itself, its column headers, the divider/split grip, and the first
+-- widget in each right-hand-pane row (the rest chain off that one). Called
+-- once at build time and again, live, while dragging the split grip.
+local function positionColumns()
+  if not frame then return end
+  charList.SetWidth(listW - 24)
+  charList.scroll:SetWidth(listW - 24)
+  listCol.levelHeader:ClearAllPoints()
+  listCol.levelHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", LEVEL_COL_X, 4)
+  listCol.profHeader:ClearAllPoints()
+  listCol.profHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", PROF_COL_X[1], 4)
+  listCol.rxpHeader:ClearAllPoints()
+  listCol.rxpHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", RXP_COL_X, 4)
+  listCol.goldHeader:ClearAllPoints()
+  listCol.goldHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", GOLD_COL_X, 4)
+  listCol.mailHeader:ClearAllPoints()
+  listCol.mailHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", MAIL_COL_X, 4)
+  listCol.divider:ClearAllPoints()
+  listCol.divider:SetPoint("TOPLEFT", listW + 14, -40)
+  listCol.divider:SetPoint("BOTTOMLEFT", listW + 14, 12)
+  listCol.splitGrip:ClearAllPoints()
+  listCol.splitGrip:SetPoint("TOP", frame, "TOPLEFT", listW + 14, -40)
+  listCol.splitGrip:SetPoint("BOTTOM", frame, "BOTTOMLEFT", listW + 14, 12)
+  tabButtons[1]:ClearAllPoints()
+  tabButtons[1]:SetPoint("TOPLEFT", listW + 26, TABS_TOP)
+  detailTitle:ClearAllPoints()
+  detailTitle:SetPoint("TOPLEFT", listW + 30, TITLE_TOP)
+  overviewGrid.frame:ClearAllPoints()
+  overviewGrid.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
+  oppInstallMsg:ClearAllPoints()
+  oppInstallMsg:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
+  oppInstallMsg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -32, CONTENT_TOP)
+end
+
 local function build()
   EUI_Skin = nil
+  listW = cfg.listW or DEFAULT_LIST_W
   if cfg.settings.useEUISkin and EllesmereUI and EllesmereUI.RegisterSkin then
     -- Fires synchronously here: we're a load-on-demand add-on built well
     -- after PLAYER_LOGIN, which is the "register later" case the API docs
@@ -1600,15 +1903,23 @@ local function build()
   end
 
   frame = tryCreate("Frame", "RosterbookPanel", UIParent, "BackdropTemplate")
-  frame:SetSize(WIDTH, HEIGHT)
+  frame:SetSize(cfg.size[1] or WIDTH, cfg.size[2] or HEIGHT)
   frame:SetToplevel(true)
   frame:SetMovable(true)
+  frame:SetResizable(true)
+  if frame.SetResizeBounds then frame:SetResizeBounds(MIN_WIDTH, MIN_HEIGHT)
+  elseif frame.SetMinResize then frame:SetMinResize(MIN_WIDTH, MIN_HEIGHT) end
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", function(self)
     if not cfg.settings.locked then self:StartMoving() end
   end)
   frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); savePosition() end)
+  frame:SetScript("OnSizeChanged", function()
+    if reflowPending then return end
+    reflowPending = true
+    C_Timer.After(0, function() reflowPending = false; reflow() end)
+  end)
   setBackdrop(frame)
   if EUI_Skin then EUI_Skin.Shell(frame) end
   if cfg.point then
@@ -1635,6 +1946,20 @@ local function build()
   close.hl:SetColorTexture(1, 1, 1, 0.1)
   close:SetScript("OnClick", function() frame:Hide() end)
   if EUI_Skin then EUI_Skin.CloseButton(close); closeFs:Hide() end
+
+  local resizeGrip = CreateFrame("Button", nil, frame)
+  resizeGrip:SetSize(16, 16)
+  resizeGrip:SetPoint("BOTTOMRIGHT", -4, 4)
+  resizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  resizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight", "ADD")
+  resizeGrip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+  resizeGrip:SetScript("OnMouseDown", function()
+    if not cfg.settings.locked then frame:StartSizing("BOTTOMRIGHT") end
+  end)
+  resizeGrip:SetScript("OnMouseUp", function()
+    frame:StopMovingOrSizing()
+    cfg.size = { frame:GetWidth(), frame:GetHeight() }
+  end)
 
   settingsButton = CreateFrame("Button", nil, frame)
   settingsButton:SetSize(18, 18)
@@ -1667,33 +1992,84 @@ local function build()
   local rescan = button(frame, "Rescan", 80, function() API.Rescan(); Panel.Refresh(true) end)
   rescan:SetPoint("LEFT", sortButton, "RIGHT", 6, 0)
 
-  charList = rowList(frame, LIST_W - 24)
+  charList = rowList(frame, listW - 24)
   charList.scroll:SetPoint("TOPLEFT", sortButton, "BOTTOMLEFT", 4, -22)
   charList.scroll:SetPoint("BOTTOMLEFT", 14, 12)
-  charList.scroll:SetWidth(LIST_W - 24)
+  charList.scroll:SetWidth(listW - 24)
   if EUI_Skin and charList.scroll.ScrollBar then EUI_Skin.ScrollBar(charList.scroll.ScrollBar) end
 
-  -- Column headers for the RXP/Gold columns each row's bottom line shows,
-  -- anchored at the same fixed x offsets as the row columns themselves.
-  local rxpHeader = frame:CreateFontString(nil, "OVERLAY")
-  rxpHeader:SetFontObject(Fonts.row)
-  rxpHeader:SetJustifyH("RIGHT")
-  rxpHeader:SetTextColor(0.6, 0.64, 0.72)
-  rxpHeader:SetText("RXP")
-  rxpHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", RXP_COL_X, 4)
+  -- Column headers for the RXP/Gold/mail columns each row's bottom line
+  -- shows, anchored at the same fixed x offsets as the row columns
+  -- themselves. Positioned (along with the divider and everything on the
+  -- right-hand side) by positionColumns(), below, since they all shift
+  -- together when the split grip drags listW.
+  listCol.levelHeader = frame:CreateFontString(nil, "OVERLAY")
+  listCol.levelHeader:SetFontObject(Fonts.row)
+  listCol.levelHeader:SetJustifyH("RIGHT")
+  listCol.levelHeader:SetTextColor(0.6, 0.64, 0.72)
+  listCol.levelHeader:SetText("Lvl")
 
-  local goldHeader = frame:CreateFontString(nil, "OVERLAY")
-  goldHeader:SetFontObject(Fonts.row)
-  goldHeader:SetJustifyH("RIGHT")
-  goldHeader:SetTextColor(0.6, 0.64, 0.72)
-  goldHeader:SetText("Gold")
-  goldHeader:SetPoint("BOTTOMRIGHT", charList.scroll, "TOPRIGHT", GOLD_COL_X, 4)
+  listCol.profHeader = frame:CreateFontString(nil, "OVERLAY")
+  listCol.profHeader:SetFontObject(Fonts.row)
+  listCol.profHeader:SetJustifyH("RIGHT")
+  listCol.profHeader:SetTextColor(0.6, 0.64, 0.72)
+  listCol.profHeader:SetText("Prof")
 
-  local divider = frame:CreateTexture(nil, "ARTWORK")
-  divider:SetColorTexture(THEME.border[1], THEME.border[2], THEME.border[3], 1)
-  divider:SetPoint("TOPLEFT", LIST_W + 14, -40)
-  divider:SetPoint("BOTTOMLEFT", LIST_W + 14, 12)
-  divider:SetWidth(1)
+  listCol.rxpHeader = frame:CreateFontString(nil, "OVERLAY")
+  listCol.rxpHeader:SetFontObject(Fonts.row)
+  listCol.rxpHeader:SetJustifyH("RIGHT")
+  listCol.rxpHeader:SetTextColor(0.6, 0.64, 0.72)
+  listCol.rxpHeader:SetText("RXP")
+
+  listCol.goldHeader = frame:CreateFontString(nil, "OVERLAY")
+  listCol.goldHeader:SetFontObject(Fonts.row)
+  listCol.goldHeader:SetJustifyH("RIGHT")
+  listCol.goldHeader:SetTextColor(0.6, 0.64, 0.72)
+  listCol.goldHeader:SetText("Gold")
+
+  listCol.mailHeader = frame:CreateTexture(nil, "OVERLAY")
+  listCol.mailHeader:SetSize(14, 14)
+  listCol.mailHeader:SetTexture("Interface\\Icons\\INV_Letter_15")
+  listCol.mailHeader:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  listCol.mailHeader:SetDesaturated(true)
+  listCol.mailHeader:SetAlpha(0.6)
+
+  listCol.divider = frame:CreateTexture(nil, "ARTWORK")
+  listCol.divider:SetColorTexture(THEME.border[1], THEME.border[2], THEME.border[3], 1)
+  listCol.divider:SetWidth(1)
+
+  -- A wider invisible grab strip centred on the divider — easier to grab
+  -- than the 1px line itself — that drags listW between MIN_LIST_W and
+  -- whatever leaves the right-hand pane at least MIN_DETAIL_W wide. WoW's
+  -- SetCursor only takes a handful of fixed built-in cursor names (attack,
+  -- cast, vendor, …) — there's no "resize" one, and passing it a texture
+  -- path like a web cursor just shows a blank/black square — so the hint
+  -- that it's draggable is a plain "<>" glyph on the grip itself instead,
+  -- brightened via the highlight texture on hover.
+  listCol.splitGrip = CreateFrame("Button", nil, frame)
+  listCol.splitGrip:SetWidth(10)
+  listCol.splitGrip:EnableMouse(true)
+  listCol.splitGrip:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+  local gripGlyph = listCol.splitGrip:CreateFontString(nil, "OVERLAY")
+  gripGlyph:SetFontObject(Fonts.row)
+  gripGlyph:SetPoint("CENTER")
+  gripGlyph:SetTextColor(0.6, 0.64, 0.72)
+  gripGlyph:SetText("<>")
+  listCol.splitGrip:SetScript("OnMouseDown", function(self)
+    if cfg.settings.locked then return end
+    self:SetScript("OnUpdate", function()
+      local scale = frame:GetEffectiveScale()
+      local x = GetCursorPosition() / scale - frame:GetLeft()
+      local maxW = math.max(MIN_LIST_W, frame:GetWidth() - 60 - MIN_DETAIL_W)
+      listW = math.max(MIN_LIST_W, math.min(maxW, math.floor(x - 14)))
+      positionColumns()
+      reflow()
+    end)
+  end)
+  listCol.splitGrip:SetScript("OnMouseUp", function(self)
+    self:SetScript("OnUpdate", nil)
+    cfg.listW = listW
+  end)
 
   -- Right: tabs, header, content
   tabButtons = {}
@@ -1721,7 +2097,7 @@ local function build()
       lastTab = t.key
       Panel.Refresh()
     end)
-    if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", LIST_W + 26, TABS_TOP) end
+    if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", listW + 26, TABS_TOP) end
     prev = b
     if EUI_Skin then EUI_Skin.Tab(b) end
     tabButtons[#tabButtons + 1] = b
@@ -1731,7 +2107,7 @@ local function build()
   -- order as the desktop app, all above the tab row.
   detailTitle = frame:CreateFontString(nil, "OVERLAY")
   detailTitle:SetFontObject(Fonts.title)
-  detailTitle:SetPoint("TOPLEFT", LIST_W + 30, TITLE_TOP)
+  detailTitle:SetPoint("TOPLEFT", listW + 30, TITLE_TOP)
   detailGold = frame:CreateFontString(nil, "OVERLAY")
   detailGold:SetFontObject(Fonts.row)
   detailGold:SetJustifyH("RIGHT")
@@ -1752,7 +2128,7 @@ local function build()
   progressBar:SetPoint("RIGHT", frame, "RIGHT", -32, 0)
   progressBar:SetHeight(32)
   progressBar.bar = CreateFrame("StatusBar", nil, progressBar)
-  progressBar.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+  registerStatusBar(progressBar.bar)
   progressBar.bar:SetHeight(10)
   progressBar.bar:SetPoint("TOPLEFT", 0, 0)
   progressBar.bar:SetPoint("RIGHT", 0, 0)
@@ -1796,17 +2172,37 @@ local function build()
   if EUI_Skin then EUI_Skin.EditBox(findBox, { padInput = true }) end
 
   overviewGrid = tileGrid(frame)
-  overviewGrid.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", LIST_W + 28, CONTENT_TOP)
+  overviewGrid.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
   overviewGrid.frame:Hide()
 
-  detail = rowList(frame, WIDTH - LIST_W - 60)
-  detailGrid = sectionList(frame, WIDTH - LIST_W - 60)
+  detail = rowList(frame, frame:GetWidth() - listW - 60)
+  detailGrid = sectionList(frame, frame:GetWidth() - listW - 60)
   detailGrid.scroll:Hide()
   if EUI_Skin then
     if detail.scroll.ScrollBar then EUI_Skin.ScrollBar(detail.scroll.ScrollBar) end
     if detailGrid.scroll.ScrollBar then EUI_Skin.ScrollBar(detailGrid.scroll.ScrollBar) end
   end
   settingsView = buildSettingsView()
+
+  -- Shown instead of the Opportunities tab's row list until the desktop
+  -- app (RosterbookOpportunities's only possible data source) has synced
+  -- at least once.
+  oppInstallMsg = CreateFrame("Frame", nil, frame)
+  oppInstallMsg:SetPoint("TOPLEFT", frame, "TOPLEFT", listW + 28, CONTENT_TOP)
+  oppInstallMsg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -32, CONTENT_TOP)
+  oppInstallMsg:Hide()
+  local oppMsgText = oppInstallMsg:CreateFontString(nil, "OVERLAY")
+  oppMsgText:SetFontObject(Fonts.row)
+  oppMsgText:SetPoint("TOPLEFT", 0, 0)
+  oppMsgText:SetPoint("RIGHT", 0, 0)
+  oppMsgText:SetJustifyH("LEFT")
+  oppMsgText:SetWordWrap(true)
+  oppMsgText:SetText(GREY .. "The desktop app hasn't synced yet. Install it, then log in or /reload. Grab it here:|r")
+  local oppMsgLink = urlBox(oppInstallMsg, "https://github.com/Brunur/Rosterbook")
+  oppMsgLink:SetPoint("TOPLEFT", oppMsgText, "BOTTOMLEFT", 0, -10)
+  oppMsgLink:SetPoint("RIGHT", 0, 0)
+
+  positionColumns()
 
   frame:SetScript("OnShow", function() Panel.Refresh() end)
   frame:Hide()

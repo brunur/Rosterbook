@@ -141,6 +141,35 @@ async fn reloads_when_the_game_saves() {
     assert!(updated, "data should reload after the file changes");
 }
 
+#[tokio::test]
+async fn syncs_opportunities_to_the_addon_when_the_game_saves() {
+    let s = setup().await;
+    let base = format!("http://127.0.0.1:{}", s.port);
+    let c = client();
+    let games = json!([{ "id": "", "name": "Retail", "savedVariablesDir": s.sv_dir }]);
+    c.put(format!("{base}/api/setup/games")).header("X-Alt-Ledger", "1").json(&games).send().await.unwrap();
+
+    let sync_path = s.sv_dir.join("RosterbookOpportunities.lua");
+    let mut synced = false;
+    for _ in 0..40 {
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        if sync_path.is_file() {
+            synced = true;
+            break;
+        }
+    }
+    assert!(synced, "the add-on's SavedVariables file should appear after the game loads");
+
+    let lua = std::fs::read_to_string(&sync_path).unwrap();
+    let vars = alt_ledger_core::lua::parse_saved_variables(&lua).expect("valid Lua");
+    assert!(vars["RosterbookOpportunitiesDB"]["generatedAt"].as_i64().is_some());
+    // An empty Lua table is ambiguous (array vs. object) with no keys to go
+    // by, so the fixture's priceless items just need `rows` to be *some*
+    // empty collection, not specifically an array.
+    let rows = &vars["RosterbookOpportunitiesDB"]["rows"];
+    assert!(rows.as_array().map(Vec::len).unwrap_or(0) == 0 && (rows.is_array() || rows.is_object()));
+}
+
 /// Talks to the server over the machine's network address, like a tablet would.
 #[tokio::test]
 async fn devices_must_pair_and_can_be_revoked() {

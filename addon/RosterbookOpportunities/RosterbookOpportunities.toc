@@ -1,0 +1,9 @@
+## Interface: 120105, 16001
+## Title: RosterBook Opportunities
+## Notes: Holds the AH/disenchant opportunity ranking the RosterBook desktop app computes, for the in-game Opportunities tab to read. Does nothing on its own — install and run the desktop app to populate it.
+## Author: Bob
+## Version: 0.1.0
+## SavedVariables: RosterbookOpportunitiesDB
+## Category: Inventory
+
+RosterbookOpportunities.lua
