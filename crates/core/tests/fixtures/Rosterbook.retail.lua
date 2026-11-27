@@ -179,6 +179,12 @@ RosterbookDB = {
 							["id"] = 2840,
 							["name"] = "Khorium Ore",
 						},
+						[2] = {
+							["count"] = 1,
+							["icon"] = 0,
+							["id"] = 9999,
+							["name"] = "Unloaded Reagent",
+						},
 					},
 				},
 			},

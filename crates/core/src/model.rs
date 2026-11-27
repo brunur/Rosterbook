@@ -595,7 +595,7 @@ mod tests {
         assert_eq!(c.xp.max, 0, "max-level characters have no XP bar");
         assert_eq!(c.bank[0].name, "Mats");
         assert!(c.reputations.iter().any(|r| r.label == "Renown 22"));
-        assert_eq!(c.currencies.len(), 2);
+        assert_eq!(c.currencies.len(), 3);
         assert!(c.currencies.iter().any(|cur| cur.name == "Merchant's Favor" && cur.max_quantity.is_none()));
         let honor = c.currencies.iter().find(|cur| cur.name == "Honor Points").expect("honor points");
         assert_eq!((honor.quantity, honor.max_quantity), (2450, Some(4000)));
@@ -605,11 +605,11 @@ mod tests {
         assert_eq!(recipe.profession.as_deref(), Some("Blacksmithing"));
         assert_eq!(recipe.reagents[0].name, "Khorium Ore");
         assert_eq!(recipe.reagents[0].count, 2);
-        assert_eq!(recipe.reagents[0].icon, Some(133_828));
+        assert_eq!(recipe.reagents[0].icon, Some(102_840));
         assert_eq!(recipe.icon, Some(136_241));
         assert_eq!(c.recipes_scanned, Some(1_792_593_450));
         assert!(g.icon_ids().contains(&136_241), "recipe icon fed into the icon-prefetch set");
-        assert!(g.icon_ids().contains(&133_828), "reagent icon fed into the icon-prefetch set");
+        assert!(g.icon_ids().contains(&102_840), "reagent icon fed into the icon-prefetch set");
         assert_eq!(recipe.reagents[1].icon, Some(0), "the model keeps the raw 0, same as every other field");
         assert!(!g.icon_ids().contains(&0), "a 0 icon (not-yet-loaded reagent) must never reach the prefetch set");
         let w = g.warband.expect("warband bank");

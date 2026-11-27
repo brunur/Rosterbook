@@ -221,9 +221,17 @@ function GetAverageItemLevel() return 612.4, 610.8 end
 C_Item = {
   GetItemInfo = function(l)
     if l == 2840 then return "Khorium Ore", l, 4, 610 end
+    if l == 9999 then return "Unloaded Reagent", l, 4, 610 end
     return "x", l, 4, 610
   end,
-  GetItemIconByID = function(id) return 100000 + id end,
+  GetItemIconByID = function(id)
+    -- id 9999 proves a reagent whose item data hasn't loaded locally yet
+    -- (a real 0 from the live API) doesn't reach the model's icon-prefetch
+    -- set (crates/core/src/model.rs icon_ids): a 0 there fails the whole
+    -- batch fetch and takes every other icon down with it.
+    if id == 9999 then return 0 end
+    return 100000 + id
+  end,
   RequestLoadItemDataByID = function() end,
 }
 
@@ -244,7 +252,10 @@ C_TradeSkillUI = {
   end,
   GetRecipeSchematic = function(id)
     if id == 101 then
-      return { outputItemID = 7069, reagentSlotSchematics = { { quantityRequired = 2, reagents = { { itemID = 2840 } } } } }
+      return { outputItemID = 7069, reagentSlotSchematics = {
+        { quantityRequired = 2, reagents = { { itemID = 2840 } } },
+        { quantityRequired = 1, reagents = { { itemID = 9999 } } },
+      } }
     end
   end,
 }
