@@ -424,6 +424,6 @@ mod tests {
         let db = &vars[0].1;
         let realm = db.get("realm").unwrap();
         assert_eq!(realm.get("123").unwrap().as_bytes().unwrap(), b"blob");
-        assert_eq!(db.get("__dbversion").is_none(), true); // __dbversion is on DB in the real file, not realm
+        assert!(db.get("__dbversion").is_none()); // __dbversion is on DB in the real file, not realm
     }
 }

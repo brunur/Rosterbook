@@ -157,7 +157,7 @@ pub fn to_lua_sync(rows: &[ItemDisposal], now: i64) -> String {
     writeln!(out, "  generatedAt = {now},").unwrap();
     writeln!(out, "  rows = {{").unwrap();
     for r in rows.iter().take(SYNC_ROW_LIMIT) {
-        write!(out, "    {{ character = {}, realm = {}, itemId = {}, itemName = {}, icon = {}, quality = {}, count = {}, classId = {}, subclassId = {}, equipLoc = {}, ahPrice = {}, priceTrendPct = {}, disenchantValue = {}, disenchantConfidence = {}, bestAction = {}, bestValue = {} }},\n",
+        writeln!(out, "    {{ character = {}, realm = {}, itemId = {}, itemName = {}, icon = {}, quality = {}, count = {}, classId = {}, subclassId = {}, equipLoc = {}, ahPrice = {}, priceTrendPct = {}, disenchantValue = {}, disenchantConfidence = {}, bestAction = {}, bestValue = {} }},",
             lua_str(&r.character),
             lua_str(&r.realm),
             r.item_id,
